@@ -2,7 +2,7 @@
 
 A Titanium module for registering a device with Google Cloud Messaging and handling push notifications sent to the device.
 
-1. Install the module as usual in Titanium Studio by downloading the [zip file](https://github.com/morinel/gcmpush/releases/download/1.0/nl.vanvianen.android.gcm-android-1.0.zip) or use
+1. Install the module as usual in Titanium Studio by downloading the [zip file](https://github.com/morinel/gcmpush/releases/download/1.1/nl.vanvianen.android.gcm-android-1.1.zip) or use
 
 ```
 gittio install nl.vanvianen.android.gcm
@@ -14,7 +14,7 @@ gittio install nl.vanvianen.android.gcm
 
 This module does not require any tiapp.xml properties, all configuration is done in Javascript.
 
-There are five notification settings that can be specified:
+There are eight notification settings that can be specified:
 
 1. smallIcon: the tiny icon shown at the top of the screen, see this [stackoverflow question](http://stackoverflow.com/questions/28387602/notification-bar-icon-turns-white-in-android-5-lollipop) for details. The file should be placed in ```platform/android/res/drawable```. 
 1. largeIcon: the large icon shown in the notification bar. If not specified your appicon will be used. The file should be placed in ```platform/android/res/drawable```.
