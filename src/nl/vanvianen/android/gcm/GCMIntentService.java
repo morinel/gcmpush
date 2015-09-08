@@ -84,7 +84,11 @@ public class GCMIntentService extends GCMBaseIntentService {
         int smallIcon = 0;
         int largeIcon = 0;
         String sound = null;
-        Boolean vibrate = Boolean.FALSE;
+        boolean vibrate = false;
+        boolean insistent = false;
+        String group = null;
+        boolean localOnly = true;
+        int priority = 0;
 
         Map<String, Object> notificationSettings = new Gson().fromJson(TiApplication.getInstance().getAppProperties().getString(GCMModule.NOTIFICATION_SETTINGS, null), Map.class);
         if (notificationSettings != null) {
@@ -115,6 +119,39 @@ public class GCMIntentService extends GCMBaseIntentService {
                     Log.e(LCAT, "Invalid setting vibrate, should be boolean");
                 }
             }
+
+            if (notificationSettings.get("insistent") != null) {
+                if (notificationSettings.get("insistent") instanceof Boolean) {
+                    insistent = (Boolean) notificationSettings.get("insistent");
+                } else {
+                    Log.e(LCAT, "Invalid setting insistent, should be boolean");
+                }
+            }
+
+            if (notificationSettings.get("group") != null) {
+                if (notificationSettings.get("group") instanceof String) {
+                    group = (String) notificationSettings.get("group");
+                } else {
+                    Log.e(LCAT, "Invalid setting group, should be string");
+                }
+            }
+
+            if (notificationSettings.get("localOnly") != null) {
+                if (notificationSettings.get("localOnly") instanceof Boolean) {
+                    localOnly = (Boolean) notificationSettings.get("localOnly");
+                } else {
+                    Log.e(LCAT, "Invalid setting localOnly, should be boolean");
+                }
+            }
+
+            if (notificationSettings.get("priority") != null) {
+                if (notificationSettings.get("priority") instanceof Integer) {
+                    priority = (Integer) notificationSettings.get("priority");
+                } else {
+                    Log.e(LCAT, "Invalid setting priority, should be int, between PRIORITY_MIN (" + NotificationCompat.PRIORITY_MIN + ") and PRIORITY_MAX (" + NotificationCompat.PRIORITY_MAX + ")");
+                }
+            }
+
         } else {
             Log.d(LCAT, "No notification settings found");
         }
@@ -151,41 +188,77 @@ public class GCMIntentService extends GCMBaseIntentService {
                 Log.d(LCAT, "No large icon found");
             }
 
-            Notification notification = new NotificationCompat.Builder(context)
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context)
                     .setContentTitle(title)
                     .setContentText(message)
                     .setTicker(ticker)
                     .setContentIntent(contentIntent)
                     .setSmallIcon(smallIcon)
-                    .setLargeIcon(bitmap).build();
+                    .setLargeIcon(bitmap);
 
-            // Sound
+            /* Name of group to group similar notifications together, can also be set in the push notification payload */
+            if (data.get("group") != null) {
+                group = (String) data.get("group");
+            }
+            if (group != null) {
+                builder = builder.setGroup(group);
+            }
+            Log.i(LCAT, "Group: " + group);
+
+            /* Whether notification should be for this device only or bridged to other devices, can also be set in the push notification payload */
+            if (data.get("localOnly") != null) {
+                localOnly = Boolean.getBoolean((String) data.get("localOnly"));
+            }
+            builder = builder.setLocalOnly(localOnly);
+            Log.i(LCAT, "LocalOnly: " + localOnly);
+
+            /* Specify notification priority, can also be set in the push notification payload */
+            if (data.get("priority") != null) {
+                priority = Integer.parseInt((String) data.get("priority"));
+            }
+            if (priority >= NotificationCompat.PRIORITY_MIN && priority <= NotificationCompat.PRIORITY_MAX) {
+                builder.setPriority(priority);
+                Log.i(LCAT, "Priority: " + priority);
+            } else {
+                Log.e(LCAT, "Ignored invalid priority " + priority);
+            }
+
+            Notification notification = builder.build();
+
+            /* Sound, can also be set in the push notification payload */
             if (data.get("sound") != null) {
                 Log.d(LCAT, "Sound specified in notification");
                 sound = (String) data.get("sound");
             }
 
             if ("default".equals(sound)) {
-                Log.i(LCAT, "Notification: default sound");
+                Log.i(LCAT, "Sound: default sound");
                 notification.defaults |= Notification.DEFAULT_SOUND;
             } else if (sound != null) {
-                Log.i(LCAT, "Notification: sound " + sound);
+                Log.i(LCAT, "Sound " + sound);
                 notification.sound = Uri.parse("android.resource://" + pkg + "/" + getResource("raw", sound));
             }
 
-            /* Vibrate */
+            /* Vibrate, can also be set in the push notification payload */
             if (data.get("vibrate") != null) {
                 vibrate = Boolean.getBoolean((String) data.get("vibrate"));
-
             }
             if (vibrate) {
                 notification.defaults |= Notification.DEFAULT_VIBRATE;
             }
-
             Log.i(LCAT, "Vibrate: " + vibrate);
 
+            /* Insistent, can also be set in the push notification payload */
+            if ("true".equals(data.get("insistent"))) {
+                insistent = true;
+            }
+            if (insistent) {
+                notification.flags |= Notification.FLAG_INSISTENT;
+            }
+            Log.i(LCAT, "Insistent: " + insistent);
+
             notification.defaults |= Notification.DEFAULT_LIGHTS;
-            notification.flags = Notification.FLAG_AUTO_CANCEL;
+            notification.flags |= Notification.FLAG_AUTO_CANCEL;
 
             ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(1, notification);
         }

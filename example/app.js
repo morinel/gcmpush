@@ -12,17 +12,21 @@ gcm.registerPush({
 	/* It's the same as your project id */
 	senderId: 'XXXXXXXX',
 	notificationSettings: {
-		sound: 'mysound.mp3', /* Place in platform/android/res/raw/mysound.mp3 */
-		smallIcon: 'notification_icon.png',  /* Place in platform/android/res/drawable/notification_icon.png */
+		sound: 'mysound.mp3', /* Place soudn file in platform/android/res/raw/mysound.mp3 */
+		smallIcon: 'notification_icon.png',  /* Place icon in platform/android/res/drawable/notification_icon.png */
 		largeIcon: 'appicon.png',  /* Same */
-		vibrate: true
+		vibrate: true,  /* Whether the phone should vibrate */
+		insistent: true,  /* Whether the notification should be insistent */
+		group: 'MyNotificationGroup',  /* Name of group to group similar notifications together */
+        localOnly: false,  /* Whether this notification should be bridged to other devices */
+        priority: +2  /* Notification priority, from -2 to +2 */
 	},
 	success: function (event) {
 		Ti.API.info("Push registration success: " + JSON.stringify(event));
 		/* Add code to send event.registrationId to your server */
 	},
 	error: function (event) {
-		Ti.API.info("Push registration error = " + JSON.stringify(event));
+		Ti.API.info("Push registration error: " + JSON.stringify(event));
 		alert(event.error);
 	},
 	callback: function (event) {
@@ -31,7 +35,7 @@ gcm.registerPush({
 		
 		var dialog = Ti.UI.createAlertDialog({
 			title: 'Push received',
-			message: JSON.stringify(event.data)
+			message: JSON.stringify(event.data),
 			buttonNames: ['View'],
 			cancel: 1
 		});

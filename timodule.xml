@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ti:module xmlns:ti="http://ti.appcelerator.org" xmlns:android="http://schemas.android.com/apk/res/android">
-	<!-- Similar to tiapp.xml, but contains module/platform specific configuration in <iphone> and <android>/<android:manifest> sections -->
-	
 	<android xmlns:android="http://schemas.android.com/apk/res/android">
-        <manifest package="com.activate.gcm" android:versionCode="1" android:versionName="1.0" android:installLocation="internalOnly">
+        <manifest package="nl.vanvianen.android.gcm" android:versionCode="2" android:versionName="1.1" android:installLocation="internalOnly">
             <supports-screens android:anyDensity="true"/>
             <uses-sdk android:minSdkVersion="10"/>
             
@@ -21,9 +19,7 @@
 			
 			<application>
 				<service android:name="nl.vanvianen.android.gcm.GCMIntentService" />
-						
 				<receiver android:name="nl.vanvianen.android.gcm.GCMBroadcastReceiver" android:permission="com.google.android.c2dm.permission.SEND">
-					
 					<!-- Start receiver on boot -->
 					<intent-filter>
 						<action android:name="android.intent.action.BOOT_COMPLETED"/>
@@ -41,7 +37,6 @@
 						<category android:name="${tiapp.properties['id']}" />
 					</intent-filter>
 				</receiver>
-	
 			</application>
         </manifest>
 	</android>
