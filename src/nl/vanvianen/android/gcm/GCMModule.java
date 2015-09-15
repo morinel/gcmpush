@@ -30,6 +30,8 @@ public class GCMModule extends KrollModule {
     private KrollFunction successCallback = null;
     private KrollFunction errorCallback = null;
     private KrollFunction messageCallback = null;
+    private KrollFunction successUnsubTopicCallback = null;
+    private KrollFunction errorUnsubTopicCallback = null;
     private String senderId;
 
     public static final String LAST_DATA = "nl.vanvianen.android.gcm.last_data";
@@ -84,10 +86,46 @@ public class GCMModule extends KrollModule {
     }
 
 
+    @Kroll.method
+    public void unsubscribe(HashMap options) {
+        // unsubscripe from a topic
+        final String topic  = (String) options.get("topic");
+        successUnsubTopicCallback = (KrollFunction) options.get("success");
+        errorUnsubTopicCallback = (KrollFunction) options.get("error");
+
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+                    InstanceID instanceID = InstanceID.getInstance(TiApplication.getInstance());
+                    String token = instanceID.getToken(senderId, GoogleCloudMessaging.INSTANCE_ID_SCOPE, null);
+                    GcmPubSub.getInstance(TiApplication.getInstance()).unsubscribe(token, topic);
+
+                    if (successUnsubTopicCallback != null) {
+                        // send success callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("unsubscribed", true);
+                        successUnsubTopicCallback.callAsync(getKrollObject(), data);
+                    }
+                } catch (Exception e){
+                    // error
+                    Log.e(LCAT, "Error " + e.toString());
+                    if (errorUnsubTopicCallback != null) {
+                        // send error callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("unsubscribed", false);
+                        data.put("error", e.toString());
+                        errorUnsubTopicCallback.callAsync(getKrollObject(), data);
+                    }
+                }
+                return null;
+            }
+        }.execute();
+    }
 
     @Kroll.method
     public void subscribe(HashMap options) {
-
+        // subscripe to a topic
         final String topic  = (String) options.get("topic");
         successTopicCallback = (KrollFunction) options.get("success");
         errorTopicCallback = (KrollFunction) options.get("error");
