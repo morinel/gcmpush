@@ -25,6 +25,8 @@ public class GCMModule extends KrollModule {
 
     private static GCMModule instance = null;
 
+    private KrollFunction successTopicCallback = null;
+    private KrollFunction errorTopicCallback = null;
     private KrollFunction successCallback = null;
     private KrollFunction errorCallback = null;
     private KrollFunction messageCallback = null;
@@ -81,21 +83,39 @@ public class GCMModule extends KrollModule {
         return GCMRegistrar.getRegistrationId(TiApplication.getInstance());
     }
 
+
+
     @Kroll.method
-    public void subscribe(final String topic) {
+    public void subscribe(HashMap options) {
+
+        final String topic  = (String) options.get("topic");
+        successTopicCallback = (KrollFunction) options.get("success");
+        errorTopicCallback = (KrollFunction) options.get("error");
+
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... params) {
                 try {
-
                     InstanceID instanceID = InstanceID.getInstance(TiApplication.getInstance());
                     String token = instanceID.getToken(senderId, GoogleCloudMessaging.INSTANCE_ID_SCOPE, null);
-
                     GcmPubSub.getInstance(TiApplication.getInstance()).subscribe(token, topic, null);
-                    Log.d(LCAT, "token " + token);
-                    Log.d(LCAT, "subscribe to " + topic);
+
+                    if (successTopicCallback != null) {
+                        // send success callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("subscribed", true);
+                        successTopicCallback.callAsync(getKrollObject(), data);
+                    }
                 } catch (Exception e){
+                    // error
                     Log.e(LCAT, "Error " + e.toString());
+                    if (errorTopicCallback != null) {
+                        // send error callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("subscribed", false);
+                        data.put("error", e.toString());
+                        errorTopicCallback.callAsync(getKrollObject(), data);
+                    }
                 }
                 return null;
             }
