@@ -2,6 +2,10 @@ package nl.vanvianen.android.gcm;
 
 import android.app.Activity;
 import com.google.android.gcm.GCMRegistrar;
+import com.google.android.gms.gcm.GcmPubSub;
+import com.google.android.gms.iid.InstanceID;
+import com.google.android.gms.gcm.GoogleCloudMessaging;
+
 import com.google.gson.Gson;
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollFunction;
@@ -10,7 +14,7 @@ import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiApplication;
 import org.json.JSONObject;
-
+import android.os.AsyncTask;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,6 +28,7 @@ public class GCMModule extends KrollModule {
     private KrollFunction successCallback = null;
     private KrollFunction errorCallback = null;
     private KrollFunction messageCallback = null;
+    private String senderId;
 
     public static final String LAST_DATA = "nl.vanvianen.android.gcm.last_data";
     public static final String NOTIFICATION_SETTINGS = "nl.vanvianen.android.gcm.notification_settings";
@@ -38,7 +43,7 @@ public class GCMModule extends KrollModule {
     public void registerPush(HashMap options) {
         Log.d(LCAT, "registerPush called");
 
-        String senderId = (String) options.get("senderId");
+        senderId = (String) options.get("senderId");
         Map<String, Object> notificationSettings = (Map<String, Object>) options.get("notificationSettings");
         successCallback = (KrollFunction) options.get("success");
         errorCallback = (KrollFunction) options.get("error");
@@ -74,6 +79,27 @@ public class GCMModule extends KrollModule {
     public String getRegistrationId() {
         Log.d(LCAT, "get registrationId property");
         return GCMRegistrar.getRegistrationId(TiApplication.getInstance());
+    }
+
+    @Kroll.method
+    public void subscribe(final String topic) {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+
+                    InstanceID instanceID = InstanceID.getInstance(TiApplication.getInstance());
+                    String token = instanceID.getToken(senderId, GoogleCloudMessaging.INSTANCE_ID_SCOPE, null);
+
+                    GcmPubSub.getInstance(TiApplication.getInstance()).subscribe(token, topic, null);
+                    Log.d(LCAT, "token " + token);
+                    Log.d(LCAT, "subscribe to " + topic);
+                } catch (Exception e){
+                    Log.e(LCAT, "Error " + e.toString());
+                }
+                return null;
+            }
+        }.execute();
     }
 
     @Kroll.method
