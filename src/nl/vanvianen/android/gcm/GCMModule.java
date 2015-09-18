@@ -2,6 +2,10 @@ package nl.vanvianen.android.gcm;
 
 import android.app.Activity;
 import com.google.android.gcm.GCMRegistrar;
+import com.google.android.gms.gcm.GcmPubSub;
+import com.google.android.gms.iid.InstanceID;
+import com.google.android.gms.gcm.GoogleCloudMessaging;
+
 import com.google.gson.Gson;
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollFunction;
@@ -10,7 +14,7 @@ import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiApplication;
 import org.json.JSONObject;
-
+import android.os.AsyncTask;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,9 +25,14 @@ public class GCMModule extends KrollModule {
 
     private static GCMModule instance = null;
 
+    private KrollFunction successTopicCallback = null;
+    private KrollFunction errorTopicCallback = null;
     private KrollFunction successCallback = null;
     private KrollFunction errorCallback = null;
     private KrollFunction messageCallback = null;
+    private KrollFunction successUnsubTopicCallback = null;
+    private KrollFunction errorUnsubTopicCallback = null;
+
 
     public static final String LAST_DATA = "nl.vanvianen.android.gcm.last_data";
     public static final String NOTIFICATION_SETTINGS = "nl.vanvianen.android.gcm.notification_settings";
@@ -74,6 +83,98 @@ public class GCMModule extends KrollModule {
     public String getRegistrationId() {
         Log.d(LCAT, "get registrationId property");
         return GCMRegistrar.getRegistrationId(TiApplication.getInstance());
+    }
+
+
+    @Kroll.method
+    public void unsubscribe(final HashMap options) {
+        // unsubscripe from a topic
+        String senderId = (String) options.get("senderId");
+        final String topic  = (String) options.get("topic");
+        successUnsubTopicCallback = (KrollFunction) options.get("success");
+        errorUnsubTopicCallback = (KrollFunction) options.get("error");
+
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+                    String token = getToken(options);
+                    GcmPubSub.getInstance(TiApplication.getInstance()).unsubscribe(token, topic);
+
+                    if (successUnsubTopicCallback != null) {
+                        // send success callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("unsubscribed", true);
+                        data.put("topic", topic);
+                        successUnsubTopicCallback.callAsync(getKrollObject(), data);
+                    }
+                } catch (Exception e){
+                    // error
+                    Log.e(LCAT, "Error " + e.toString());
+                    if (errorUnsubTopicCallback != null) {
+                        // send error callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("unsubscribed", false);
+                        data.put("topic", topic);
+                        data.put("error", e.toString());
+                        errorUnsubTopicCallback.callAsync(getKrollObject(), data);
+                    }
+                }
+                return null;
+            }
+        }.execute();
+    }
+
+    @Kroll.method
+    public void subscribe(final HashMap options) {
+        // subscripe to a topic
+        String senderId = (String) options.get("senderId");
+        final String topic  = (String) options.get("topic");
+        successTopicCallback = (KrollFunction) options.get("success");
+        errorTopicCallback = (KrollFunction) options.get("error");
+
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+
+                    String token = getToken(options);
+                    GcmPubSub.getInstance(TiApplication.getInstance()).subscribe(token, topic, null);
+
+                    if (successTopicCallback != null) {
+                        // send success callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("subscribed", true);
+                        data.put("topic", topic);
+                        successTopicCallback.callAsync(getKrollObject(), data);
+                    }
+                } catch (Exception e){
+                    // error
+                    Log.e(LCAT, "Error " + e.toString());
+                    if (errorTopicCallback != null) {
+                        // send error callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("subscribed", false);
+                        data.put("topic", topic);
+                        data.put("error", e.toString());
+                        errorTopicCallback.callAsync(getKrollObject(), data);
+                    }
+                }
+                return null;
+            }
+        }.execute();
+    }
+
+    @Kroll.method
+    public String getToken(HashMap options){
+        // get token and return it
+        String senderId = (String) options.get("senderId");
+        InstanceID instanceID = InstanceID.getInstance(TiApplication.getInstance());
+        try {
+            return  instanceID.getToken(senderId, GoogleCloudMessaging.INSTANCE_ID_SCOPE, null);
+        } catch (Exception e){
+            return "";
+        }
     }
 
     @Kroll.method
