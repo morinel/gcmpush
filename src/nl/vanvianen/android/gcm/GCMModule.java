@@ -1,11 +1,27 @@
+/**
+ * Copyright 2015  Jeroen van Vianen
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package nl.vanvianen.android.gcm;
 
 import android.app.Activity;
+import android.os.AsyncTask;
 import com.google.android.gcm.GCMRegistrar;
 import com.google.android.gms.gcm.GcmPubSub;
-import com.google.android.gms.iid.InstanceID;
 import com.google.android.gms.gcm.GoogleCloudMessaging;
-
+import com.google.android.gms.iid.InstanceID;
 import com.google.gson.Gson;
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollFunction;
@@ -14,7 +30,7 @@ import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiApplication;
 import org.json.JSONObject;
-import android.os.AsyncTask;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,13 +41,15 @@ public class GCMModule extends KrollModule {
 
     private static GCMModule instance = null;
 
-    private KrollFunction successTopicCallback = null;
-    private KrollFunction errorTopicCallback = null;
+    /* Callbacks for push notifications */
     private KrollFunction successCallback = null;
     private KrollFunction errorCallback = null;
     private KrollFunction messageCallback = null;
-    private KrollFunction successUnsubTopicCallback = null;
-    private KrollFunction errorUnsubTopicCallback = null;
+
+    /* Callbacks for topics */
+    private KrollFunction successTopicCallback = null;
+    private KrollFunction errorTopicCallback = null;
+    private KrollFunction topicCallback = null;
 
 
     public static final String LAST_DATA = "nl.vanvianen.android.gcm.last_data";
@@ -53,7 +71,6 @@ public class GCMModule extends KrollModule {
         errorCallback = (KrollFunction) options.get("error");
         messageCallback = (KrollFunction) options.get("callback");
 
-
         /* Store notification settings in global Ti.App properties */
         JSONObject json = new JSONObject(notificationSettings);
         TiApplication.getInstance().getAppProperties().setString(GCMModule.NOTIFICATION_SETTINGS, json.toString());
@@ -66,15 +83,18 @@ public class GCMModule extends KrollModule {
                 sendSuccess(registrationId);
             }
         } else {
-            Log.e(LCAT, "No GCM senderId specified; get it from the Google Play Developer Console");
-            sendError("No GCM senderId specified; get it from the Google Play Developer Console");
+            sendError(errorCallback, "No GCM senderId specified; get it from the Google Play Developer Console");
         }
     }
 
     @Kroll.method
     public void unregister() {
         Log.d(LCAT, "unregister called (" + (instance != null) + ")");
-        GCMRegistrar.unregister(TiApplication.getInstance());
+        try {
+            GCMRegistrar.unregister(TiApplication.getInstance());
+        } catch (Exception ex) {
+            Log.e(LCAT, "Cannot unregister from push: " + ex.getMessage());
+        }
     }
 
 
@@ -87,93 +107,109 @@ public class GCMModule extends KrollModule {
 
 
     @Kroll.method
+    public void subscribe(final HashMap options) {
+        Log.d(LCAT, "subscribe called");
+
+        // subscripe to a topic
+        final String senderId = (String) options.get("senderId");
+        final String topic  = (String) options.get("topic");
+
+        if (options.get("success") != null) {
+            successTopicCallback = (KrollFunction) options.get("success");
+        }
+        if (options.get("error") != null) {
+            errorTopicCallback = (KrollFunction) options.get("error");
+        }
+        if (options.get("callback") != null) {
+            topicCallback = (KrollFunction) options.get("callback");
+        }
+
+        if (topic == null || !topic.startsWith("/topics/")) {
+            sendError(errorTopicCallback, "No or invalid topic specified, should start with /topics/");
+        }
+
+        if (senderId != null) {
+            new AsyncTask<Void, Void, Void>() {
+                @Override
+                protected Void doInBackground(Void... params) {
+                    try {
+                        String token = getToken(senderId);
+                        GcmPubSub.getInstance(TiApplication.getInstance()).subscribe(token, topic, null);
+
+                        if (successTopicCallback != null) {
+                            // send success callback
+                            HashMap<String, Object> data = new HashMap<String, Object>();
+                            data.put("success", true);
+                            data.put("topic", topic);
+                            successTopicCallback.callAsync(getKrollObject(), data);
+                        }
+                    } catch (Exception ex) {
+                        // error
+                        Log.e(LCAT, "Error " + ex.toString());
+                        if (errorTopicCallback != null) {
+                            // send error callback
+                            HashMap<String, Object> data = new HashMap<String, Object>();
+                            data.put("success", false);
+                            data.put("topic", topic);
+                            data.put("error", ex.toString());
+                            errorCallback.callAsync(getKrollObject(), data);
+                        }
+                    }
+                    return null;
+                }
+            }.execute();
+        } else {
+            sendError(errorTopicCallback, "No GCM senderId specified; get it from the Google Play Developer Console");
+        }
+    }
+
+    @Kroll.method
     public void unsubscribe(final HashMap options) {
         // unsubscripe from a topic
-        String senderId = (String) options.get("senderId");
+        final String senderId = (String) options.get("senderId");
         final String topic  = (String) options.get("topic");
-        successUnsubTopicCallback = (KrollFunction) options.get("success");
-        errorUnsubTopicCallback = (KrollFunction) options.get("error");
+        final KrollFunction callback = (KrollFunction) options.get("callback");
 
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(Void... params) {
-                try {
-                    String token = getToken(options);
-                    GcmPubSub.getInstance(TiApplication.getInstance()).unsubscribe(token, topic);
+        if (topic == null || !topic.startsWith("/topics/")) {
+            Log.e(LCAT, "No or invalid topic specified, should start with /topics/");
+        }
 
-                    if (successUnsubTopicCallback != null) {
-                        // send success callback
-                        HashMap<String, Object> data = new HashMap<String, Object>();
-                        data.put("unsubscribed", true);
-                        data.put("topic", topic);
-                        successUnsubTopicCallback.callAsync(getKrollObject(), data);
+        if (senderId != null) {
+            new AsyncTask<Void, Void, Void>() {
+                @Override
+                protected Void doInBackground(Void... params) {
+                    try {
+                        String token = getToken(senderId);
+                        if (token != null) {
+                            GcmPubSub.getInstance(TiApplication.getInstance()).unsubscribe(token, topic);
+
+                            if (callback != null) {
+                                // send success callback
+                                HashMap<String, Object> data = new HashMap<String, Object>();
+                                data.put("success", true);
+                                data.put("topic", topic);
+                                data.put("token", token);
+                                callback.callAsync(getKrollObject(), data);
+                            }
+                        } else {
+                            sendError(callback, "Cannot unsubscribe from topic " + topic);
+                        }
+                    } catch (Exception ex) {
+                        sendError(callback, "Cannot unsubscribe from topic " + topic + ": " + ex.getMessage());
                     }
-                } catch (Exception e){
-                    // error
-                    Log.e(LCAT, "Error " + e.toString());
-                    if (errorUnsubTopicCallback != null) {
-                        // send error callback
-                        HashMap<String, Object> data = new HashMap<String, Object>();
-                        data.put("unsubscribed", false);
-                        data.put("topic", topic);
-                        data.put("error", e.toString());
-                        errorUnsubTopicCallback.callAsync(getKrollObject(), data);
-                    }
+                    return null;
                 }
-                return null;
-            }
-        }.execute();
+            }.execute();
+        }
     }
 
-    @Kroll.method
-    public void subscribe(final HashMap options) {
-        // subscripe to a topic
-        String senderId = (String) options.get("senderId");
-        final String topic  = (String) options.get("topic");
-        successTopicCallback = (KrollFunction) options.get("success");
-        errorTopicCallback = (KrollFunction) options.get("error");
-
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(Void... params) {
-                try {
-
-                    String token = getToken(options);
-                    GcmPubSub.getInstance(TiApplication.getInstance()).subscribe(token, topic, null);
-
-                    if (successTopicCallback != null) {
-                        // send success callback
-                        HashMap<String, Object> data = new HashMap<String, Object>();
-                        data.put("subscribed", true);
-                        data.put("topic", topic);
-                        successTopicCallback.callAsync(getKrollObject(), data);
-                    }
-                } catch (Exception e){
-                    // error
-                    Log.e(LCAT, "Error " + e.toString());
-                    if (errorTopicCallback != null) {
-                        // send error callback
-                        HashMap<String, Object> data = new HashMap<String, Object>();
-                        data.put("subscribed", false);
-                        data.put("topic", topic);
-                        data.put("error", e.toString());
-                        errorTopicCallback.callAsync(getKrollObject(), data);
-                    }
-                }
-                return null;
-            }
-        }.execute();
-    }
-
-    @Kroll.method
-    public String getToken(HashMap options){
+    public String getToken(String senderId){
         // get token and return it
-        String senderId = (String) options.get("senderId");
-        InstanceID instanceID = InstanceID.getInstance(TiApplication.getInstance());
         try {
-            return  instanceID.getToken(senderId, GoogleCloudMessaging.INSTANCE_ID_SCOPE, null);
-        } catch (Exception e){
-            return "";
+            InstanceID instanceID = InstanceID.getInstance(TiApplication.getInstance());
+            return instanceID.getToken(senderId, GoogleCloudMessaging.INSTANCE_ID_SCOPE, null);
+        } catch (Exception ex) {
+            return null;
         }
     }
 
@@ -211,18 +247,25 @@ public class GCMModule extends KrollModule {
     public void sendSuccess(String registrationId) {
         if (successCallback != null) {
             HashMap<String, Object> data = new HashMap<String, Object>();
+            data.put("success", true);
             data.put("registrationId", registrationId);
-
             successCallback.callAsync(getKrollObject(), data);
         }
     }
 
     public void sendError(String error) {
-        if (errorCallback != null) {
+        sendError(errorCallback, error);
+    }
+
+
+    public void sendError(KrollFunction callback, String error) {
+        Log.e(LCAT, error);
+        if (callback != null) {
             HashMap<String, Object> data = new HashMap<String, Object>();
+            data.put("success", false);
             data.put("error", error);
 
-            errorCallback.callAsync(getKrollObject(), data);
+            callback.callAsync(getKrollObject(), data);
         }
     }
 
@@ -232,6 +275,19 @@ public class GCMModule extends KrollModule {
             data.put("data", messageData);
 
             messageCallback.call(getKrollObject(), data);
+        } else {
+            Log.e(LCAT, "No callback specified for push notification");
+        }
+    }
+
+    public void sendTopicMessage(HashMap<String, Object> messageData) {
+        if (topicCallback != null) {
+            HashMap<String, Object> data = new HashMap<String, Object>();
+            data.put("data", messageData);
+
+            topicCallback.call(getKrollObject(), data);
+        } else {
+            Log.e(LCAT, "No callback specified for topic subscribe");
         }
     }
 

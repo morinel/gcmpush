@@ -36,7 +36,7 @@ gcm.registerPush({
 		var dialog = Ti.UI.createAlertDialog({
 			title: 'Push received',
 			message: JSON.stringify(event.data),
-			buttonNames: ['View'],
+			buttonNames: ['View','Cancel'],
 			cancel: 1
 		});
 		dialog.addEventListener("click", function(event) {

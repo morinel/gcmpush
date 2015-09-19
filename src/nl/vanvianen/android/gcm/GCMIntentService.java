@@ -1,9 +1,24 @@
+/**
+ * Copyright 2015  Jeroen van Vianen
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package nl.vanvianen.android.gcm;
 
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -67,9 +82,16 @@ public class GCMIntentService extends GCMBaseIntentService {
     protected void onMessage(Context context, Intent intent) {
         Log.d(LCAT, "Push notification received");
 
+        boolean isTopic = false;
+
         HashMap<String, Object> data = new HashMap<String, Object>();
         for (String key : intent.getExtras().keySet()) {
-            Log.d(LCAT, "Message key: " + key + " value: " + intent.getExtras().getString(key));
+            String value = intent.getExtras().getString(key);
+            Log.d(LCAT, "Message key: " + key + " value: " + value);
+
+            if (key.equals("from") && value != null && value.startsWith("/topics/")) {
+                isTopic = true;
+            }
 
             String eventKey = key.startsWith("data.") ? key.substring(5) : key;
             data.put(eventKey, intent.getExtras().getString(key));
@@ -147,8 +169,10 @@ public class GCMIntentService extends GCMBaseIntentService {
             if (notificationSettings.get("priority") != null) {
                 if (notificationSettings.get("priority") instanceof Integer) {
                     priority = (Integer) notificationSettings.get("priority");
+                } else if (notificationSettings.get("priority") instanceof Double) {
+                    priority = ((Double) notificationSettings.get("priority")).intValue();
                 } else {
-                    Log.e(LCAT, "Invalid setting priority, should be int, between PRIORITY_MIN (" + NotificationCompat.PRIORITY_MIN + ") and PRIORITY_MAX (" + NotificationCompat.PRIORITY_MAX + ")");
+                    Log.e(LCAT, "Invalid setting priority, should be an integer, between PRIORITY_MIN (" + NotificationCompat.PRIORITY_MIN + ") and PRIORITY_MAX (" + NotificationCompat.PRIORITY_MAX + ")");
                 }
             }
 
@@ -172,14 +196,16 @@ public class GCMIntentService extends GCMBaseIntentService {
         launcherIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
         launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
 
-        PendingIntent contentIntent = PendingIntent.getActivity(this, 0, launcherIntent, PendingIntent.FLAG_ONE_SHOT);
-
         String title = (String) data.get("title");
         String message = (String) data.get("message");
         String ticker = (String) data.get("ticker");
 
+        Log.i(LCAT, "Title: " + title);
+        Log.i(LCAT, "Message: " + message);
+        Log.i(LCAT, "Ticker: " + ticker);
+
         if (message == null) {
-            Log.d(LCAT, "Message received but no message so will make this silent");
+            Log.d(LCAT, "Message received but no 'message' specified in push notification payload, so will make this silent");
         } else {
             Log.d(LCAT, "Creating notification...");
 
@@ -192,7 +218,7 @@ public class GCMIntentService extends GCMBaseIntentService {
                     .setContentTitle(title)
                     .setContentText(message)
                     .setTicker(ticker)
-                    .setContentIntent(contentIntent)
+                    .setContentIntent(PendingIntent.getActivity(this, 0, launcherIntent, PendingIntent.FLAG_ONE_SHOT))
                     .setSmallIcon(smallIcon)
                     .setLargeIcon(bitmap);
 
@@ -201,7 +227,7 @@ public class GCMIntentService extends GCMBaseIntentService {
                 group = (String) data.get("group");
             }
             if (group != null) {
-                builder = builder.setGroup(group);
+                builder.setGroup(group);
             }
             Log.i(LCAT, "Group: " + group);
 
@@ -209,7 +235,7 @@ public class GCMIntentService extends GCMBaseIntentService {
             if (data.get("localOnly") != null) {
                 localOnly = Boolean.getBoolean((String) data.get("localOnly"));
             }
-            builder = builder.setLocalOnly(localOnly);
+            builder.setLocalOnly(localOnly);
             Log.i(LCAT, "LocalOnly: " + localOnly);
 
             /* Specify notification priority, can also be set in the push notification payload */
@@ -264,7 +290,11 @@ public class GCMIntentService extends GCMBaseIntentService {
         }
 
         if (GCMModule.getInstance() != null) {
-            GCMModule.getInstance().sendMessage(data);
+            if (isTopic) {
+                GCMModule.getInstance().sendTopicMessage(data);
+            } else {
+                GCMModule.getInstance().sendMessage(data);
+            }
         }
     }
 
