@@ -152,10 +152,12 @@ public class GCMIntentService extends GCMBaseIntentService {
                 Log.e(LCAT, "Invalid setting largeIcon, should be String");
             }
 
-            if (notificationSettings.get("sound") instanceof String) {
-                sound = (String) notificationSettings.get("sound");
-            } else {
-                Log.e(LCAT, "Invalid setting sound, should be string");
+            if (notificationSettings.get("sound") != null) {
+                if (notificationSettings.get("sound") instanceof String) {
+                    sound = (String) notificationSettings.get("sound");
+                } else {
+                    Log.e(LCAT, "Invalid setting sound, should be string");
+                }
             }
 
             if (notificationSettings.get("vibrate") != null) {
@@ -200,40 +202,52 @@ public class GCMIntentService extends GCMBaseIntentService {
                 }
             }
 
-            if (notificationSettings.get("titleKey") instanceof String) {
-                titleKey = (String) notificationSettings.get("titleKey");
-            } else {
-                Log.e(LCAT, "Invalid setting titleKey, should be string");
+            if (notificationSettings.get("titleKey") != null) {
+                if (notificationSettings.get("titleKey") instanceof String) {
+                    titleKey = (String) notificationSettings.get("titleKey");
+                } else {
+                    Log.e(LCAT, "Invalid setting titleKey, should be string");
+                }
             }
 
-            if (notificationSettings.get("messageKey") instanceof String) {
-                messageKey = (String) notificationSettings.get("messageKey");
-            } else {
-                Log.e(LCAT, "Invalid setting messageKey, should be string");
+            if (notificationSettings.get("messageKey") != null) {
+                if (notificationSettings.get("messageKey") instanceof String) {
+                    messageKey = (String) notificationSettings.get("messageKey");
+                } else {
+                    Log.e(LCAT, "Invalid setting messageKey, should be string");
+                }
             }
 
-            if (notificationSettings.get("tickerKey") instanceof String) {
-                tickerKey = (String) notificationSettings.get("tickerKey");
-            } else {
-                Log.e(LCAT, "Invalid setting tickerKey, should be string");
+            if (notificationSettings.get("tickerKey") != null) {
+                if (notificationSettings.get("tickerKey") instanceof String) {
+                    tickerKey = (String) notificationSettings.get("tickerKey");
+                } else {
+                    Log.e(LCAT, "Invalid setting tickerKey, should be string");
+                }
             }
 
-            if (notificationSettings.get("title") instanceof String) {
-                title = (String) notificationSettings.get("title");
-            } else {
-                Log.e(LCAT, "Invalid setting title, should be string");
+            if (notificationSettings.get("title") != null) {
+                if (notificationSettings.get("title") instanceof String) {
+                    title = (String) notificationSettings.get("title");
+                } else {
+                    Log.e(LCAT, "Invalid setting title, should be string");
+                }
             }
 
-            if (notificationSettings.get("message") instanceof String) {
-                message = (String) notificationSettings.get("message");
-            } else {
-                Log.e(LCAT, "Invalid setting message, should be string");
+            if (notificationSettings.get("message") != null) {
+                if (notificationSettings.get("message") instanceof String) {
+                    message = (String) notificationSettings.get("message");
+                } else {
+                    Log.e(LCAT, "Invalid setting message, should be string");
+                }
             }
 
-            if (notificationSettings.get("ticker") instanceof String) {
-                ticker = (String) notificationSettings.get("ticker");
-            } else {
-                Log.e(LCAT, "Invalid setting ticker, should be string");
+            if (notificationSettings.get("ticker") != null) {
+                if (notificationSettings.get("ticker") instanceof String) {
+                    ticker = (String) notificationSettings.get("ticker");
+                } else {
+                    Log.e(LCAT, "Invalid setting ticker, should be string");
+                }
             }
 
         } else {
