@@ -30,10 +30,11 @@ import com.google.gson.Gson;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.util.TiRHelper;
-import org.json.JSONObject;
+import org.json.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Iterator;
 
 public class GCMIntentService extends GCMBaseIntentService {
 
@@ -87,7 +88,7 @@ public class GCMIntentService extends GCMBaseIntentService {
         HashMap<String, Object> data = new HashMap<String, Object>();
         for (String key : intent.getExtras().keySet()) {
             String value = intent.getExtras().getString(key);
-            Log.d(LCAT, "Message key: " + key + " value: " + value);
+            Log.d(LCAT, "Message key: \"" + key + "\" value: \"" + value + "\"");
 
             if (key.equals("from") && value != null && value.startsWith("/topics/")) {
                 isTopic = true;
@@ -95,6 +96,25 @@ public class GCMIntentService extends GCMBaseIntentService {
 
             String eventKey = key.startsWith("data.") ? key.substring(5) : key;
             data.put(eventKey, intent.getExtras().getString(key));
+
+            if (value.startsWith("{")) {
+                Log.d(LCAT, "Parsing JSON string...");
+                try {
+                    JSONObject json = new JSONObject(value);
+
+                    Iterator<String> keys = json.keys();
+                    while (keys.hasNext()) {
+                        String jKey = (String)keys.next();
+                        String jValue = (String)json.getString(jKey);
+                        Log.d(LCAT, "JSON key: \"" + jKey + "\" value: \"" + jValue + "\"");
+
+                        data.put(jKey, jValue);
+                    }
+                }
+                catch(JSONException e) {
+                    Log.d(LCAT, "JSON error: " + e);
+                }
+            }
         }
 
         /* Store data to be retrieved when resuming app as a JSON object, serialized as a String, otherwise
@@ -111,6 +131,12 @@ public class GCMIntentService extends GCMBaseIntentService {
         String group = null;
         boolean localOnly = true;
         int priority = 0;
+        String titleKey = "title";
+        String messageKey = "message";
+        String tickerKey = "ticker";
+        String title = null;
+        String message = null;
+        String ticker = null;
 
         Map<String, Object> notificationSettings = new Gson().fromJson(TiApplication.getInstance().getAppProperties().getString(GCMModule.NOTIFICATION_SETTINGS, null), Map.class);
         if (notificationSettings != null) {
@@ -176,6 +202,54 @@ public class GCMIntentService extends GCMBaseIntentService {
                 }
             }
 
+            if (notificationSettings.get("titleKey") instanceof String) {
+                if (notificationSettings.get("titleKey") != null) {
+                    titleKey = (String) notificationSettings.get("titleKey");
+                } else {
+                    Log.e(LCAT, "Invalid setting titleKey, should be string");
+                }
+            }
+
+            if (notificationSettings.get("messageKey") instanceof String) {
+                if (notificationSettings.get("messageKey") != null) {
+                    messageKey = (String) notificationSettings.get("messageKey");
+                } else {
+                    Log.e(LCAT, "Invalid setting messageKey, should be string");
+                }
+            }
+
+            if (notificationSettings.get("tickerKey") instanceof String) {
+                if (notificationSettings.get("tickerKey") != null) {
+                    tickerKey = (String) notificationSettings.get("tickerKey");
+                } else {
+                    Log.e(LCAT, "Invalid setting tickerKey, should be string");
+                }
+            }
+
+            if (notificationSettings.get("title") instanceof String) {
+                if (notificationSettings.get("title") != null) {
+                    title = (String) notificationSettings.get("title");
+                } else {
+                    Log.e(LCAT, "Invalid setting title, should be string");
+                }
+            }
+
+            if (notificationSettings.get("message") instanceof String) {
+                if (notificationSettings.get("message") != null) {
+                    message = (String) notificationSettings.get("message");
+                } else {
+                    Log.e(LCAT, "Invalid setting message, should be string");
+                }
+            }
+
+            if (notificationSettings.get("ticker") instanceof String) {
+                if (notificationSettings.get("ticker") != null) {
+                    ticker = (String) notificationSettings.get("ticker");
+                } else {
+                    Log.e(LCAT, "Invalid setting ticker, should be string");
+                }
+            }
+
         } else {
             Log.d(LCAT, "No notification settings found");
         }
@@ -196,9 +270,16 @@ public class GCMIntentService extends GCMBaseIntentService {
         launcherIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
         launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
 
-        String title = (String) data.get("title");
-        String message = (String) data.get("message");
-        String ticker = (String) data.get("ticker");
+        /* Grab notification content from data according to provided keys if not already set */
+        if (title == null && titleKey != null) {
+            title = (String) data.get(titleKey);
+        }
+        if (message == null && messageKey != null) {
+            message = (String) data.get(messageKey);
+        }
+        if (ticker == null && tickerKey != null) {
+            ticker = (String) data.get(tickerKey);
+        }
 
         Log.i(LCAT, "Title: " + title);
         Log.i(LCAT, "Message: " + message);
