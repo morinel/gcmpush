@@ -98,7 +98,7 @@ public class GCMIntentService extends GCMBaseIntentService {
         }
 
         /* Store data to be retrieved when resuming app as a JSON object, serialized as a String, otherwise
-         * Ti.App.Properties.getString("com.activate.gcm.last_data") doesn't work. */
+         * Ti.App.Properties.getString(GCMModule.LAST_DATA) doesn't work. */
         JSONObject json = new JSONObject(data);
         TiApplication.getInstance().getAppProperties().setString(GCMModule.LAST_DATA, json.toString());
 
