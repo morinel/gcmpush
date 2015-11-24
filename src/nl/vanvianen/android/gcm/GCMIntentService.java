@@ -220,7 +220,9 @@ public class GCMIntentService extends GCMBaseIntentService {
                     .setTicker(ticker)
                     .setContentIntent(PendingIntent.getActivity(this, 0, launcherIntent, PendingIntent.FLAG_ONE_SHOT))
                     .setSmallIcon(smallIcon)
-                    .setLargeIcon(bitmap);
+                    .setLargeIcon(bitmap)
+                    .setStyle(new NotificationCompat.BigTextStyle()
+                        .bigText(message));
 
             /* Name of group to group similar notifications together, can also be set in the push notification payload */
             if (data.get("group") != null) {
