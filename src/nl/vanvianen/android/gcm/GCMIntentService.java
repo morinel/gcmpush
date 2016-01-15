@@ -111,6 +111,7 @@ public class GCMIntentService extends GCMBaseIntentService {
         String group = null;
         boolean localOnly = true;
         int priority = 0;
+        boolean bigText = false;
 
         Map<String, Object> notificationSettings = new Gson().fromJson(TiApplication.getInstance().getAppProperties().getString(GCMModule.NOTIFICATION_SETTINGS, null), Map.class);
         if (notificationSettings != null) {
@@ -176,6 +177,14 @@ public class GCMIntentService extends GCMBaseIntentService {
                 }
             }
 
+            if (notificationSettings.get("bigText") != null) {
+                if (notificationSettings.get("bigText") instanceof Boolean) {
+                    bigText = (Boolean) notificationSettings.get("bigText");
+                } else {
+                    Log.e(LCAT, "Invalid setting bigText, should be boolean");
+                }
+            }
+
         } else {
             Log.d(LCAT, "No notification settings found");
         }
@@ -220,9 +229,7 @@ public class GCMIntentService extends GCMBaseIntentService {
                     .setTicker(ticker)
                     .setContentIntent(PendingIntent.getActivity(this, 0, launcherIntent, PendingIntent.FLAG_ONE_SHOT))
                     .setSmallIcon(smallIcon)
-                    .setLargeIcon(bitmap)
-                    .setStyle(new NotificationCompat.BigTextStyle()
-                        .bigText(message));
+                    .setLargeIcon(bitmap);
 
             /* Name of group to group similar notifications together, can also be set in the push notification payload */
             if (data.get("group") != null) {
@@ -250,6 +257,15 @@ public class GCMIntentService extends GCMBaseIntentService {
             } else {
                 Log.e(LCAT, "Ignored invalid priority " + priority);
             }
+
+            /* Specify whether bigtext should be used, can also be set in the push notification payload */
+            if (data.get("bigText") != null) {
+                bigText = Boolean.getBoolean((String) data.get("bigText"));
+            }
+            if (bigText) {
+                builder.setStyle(new NotificationCompat.BigTextStyle().bigText(message));
+            }
+            Log.i(LCAT, "bigText: " + bigText);
 
             Notification notification = builder.build();
 

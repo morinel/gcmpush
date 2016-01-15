@@ -42,6 +42,7 @@ public void sendPush() {
         .addData("priority", "2")
         .addData("localOnly", "false")
         .addData("group", "mygroup")
+        .addData("bigText", "true")
         .build();
     try {
         /* Use the registrationIds returned in the success handler in the apps registerPush() call. */
@@ -72,8 +73,9 @@ See the [example](https://github.com/morinel/gcmpush/blob/master/example/app.js)
 1. **group**: name of group to group similar notifications together, default null.
 1. **localOnly** (true / false): whether this notification should be bridged to other devices (false) or is only relevant to this device (true), default true.
 1. **priority**: (integer) specifies the priority of the notification, should be between [PRIORITY_MIN](http://developer.android.com/reference/android/support/v4/app/NotificationCompat.html#PRIORITY_MIN) and [PRIORITY_MAX](http://developer.android.com/reference/android/support/v4/app/NotificationCompat.html#PRIORITY_MAX), default 0.
+1. **bigText** (true / false): whether this notification should use the [bigText style](http://developer.android.com/reference/android/app/Notification.BigTextStyle.html), default false.
 
-The settings sound, vibrate, insistent, group, localOnly and priority can also be set as data in the push message being received (see the server-side example above).
+The settings sound, vibrate, insistent, group, localOnly, priority and bigText can also be set as data in the push message being received (see the server-side example above).
 
 If the app is not active when the notification is received, use gcm.getLastData() to retrieve the contents of the notification and act accordingly to start or resume the app in a suitable way. If you're done, call gcm.clearLastData(), otherwise the same logic will happen when resuming the app again, see the [example](https://github.com/morinel/gcmpush/blob/master/example/app.js).
 
@@ -93,7 +95,7 @@ public void sendTopic(e) throws Exception {
     JSONObject json = new JSONObject();
     JSONObject data = new JSONObject();
     data.put("message", "Lorem ipsum dolor sit amet");
-    /* Add any other notification settings here, see the push notification server-side example */
+    // Add any other notification settings here, see the push notification server-side example
 
     json.put("to", "/topics/mytopic");
     json.put("data", data);
