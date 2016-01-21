@@ -43,6 +43,8 @@ public void sendPush() {
         .addData("localOnly", "false")
         .addData("group", "mygroup")
         .addData("bigText", "true")
+        .addData("ledOn", "200")
+        .addData("ledOff", "300")
         .build();
     try {
         /* Use the registrationIds returned in the success handler in the apps registerPush() call. */
@@ -74,6 +76,15 @@ See the [example](https://github.com/morinel/gcmpush/blob/master/example/app.js)
 1. **localOnly** (true / false): whether this notification should be bridged to other devices (false) or is only relevant to this device (true), default true.
 1. **priority**: (integer) specifies the priority of the notification, should be between [PRIORITY_MIN](http://developer.android.com/reference/android/support/v4/app/NotificationCompat.html#PRIORITY_MIN) and [PRIORITY_MAX](http://developer.android.com/reference/android/support/v4/app/NotificationCompat.html#PRIORITY_MAX), default 0.
 1. **bigText** (true / false): whether this notification should use the [bigText style](http://developer.android.com/reference/android/app/Notification.BigTextStyle.html), default false.
+1. **titleKey** (string): specify a custom key name for the notification title sent by the server, default ```title```
+1. **messageKey** (string): specify a custom key name for the notification message sent by the server, default ```message```
+1. **tickerKey** (string): specify a custom key name for the notification ticker text sent by the server, default ```ticker```
+1. **title** (string): specify a static title for the notification (server data will be ignored)
+1. **message** (string): specify a static message for the notification (server data will be ignored)
+1. **ticker** (string): specify a static ticker for the notification (server data will be ignored)
+1. **ledOn** (integer): the number of ms the LED should be on while flashing, see  [javadoc](http://developer.android.com/reference/android/app/Notification.html#ledOnMS)
+1. **ledOff** (integer): the number of ms the LED should be off while flashing, see [javadoc](http://developer.android.com/reference/android/app/Notification.html#ledOffMS)
+
 
 The settings sound, vibrate, insistent, group, localOnly, priority and bigText can also be set as data in the push message being received (see the server-side example above).
 

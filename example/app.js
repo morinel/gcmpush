@@ -20,7 +20,18 @@ gcm.registerPush({
 		group: 'MyNotificationGroup',  /* Name of group to group similar notifications together */
         localOnly: false,  /* Whether this notification should be bridged to other devices */
         priority: +2,  /* Notification priority, from -2 to +2 */
-		bigText: false
+		bigText: false,
+        /* You can customize the key name of the title, message, and ticker values if you don't have control over how the notification is sent */
+        titleKey: 'title',
+        messageKey: 'message',
+        tickerKey: 'ticker',
+        /* You can also set a static value for title, message, or ticker. If you set a value here, the key will be ignored. */
+        // title: '',
+        // message: '',
+        // ticker: ''
+		/* Add LED flashing */
+		ledOn: 200,
+		ledOff: 300
 	},
 	success: function (event) {
 		Ti.API.info("Push registration success: " + JSON.stringify(event));

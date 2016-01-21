@@ -30,16 +30,22 @@ import com.google.gson.Gson;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.util.TiRHelper;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Iterator;
 
 public class GCMIntentService extends GCMBaseIntentService {
 
     private static final String LCAT = "GCMIntentService";
 
     private static final String UNREGISTER_EVENT = "unregister";
+
+    private static final String DEFAULT_TITLE_KEY = "title";
+    private static final String DEFAULT_MESSAGE_KEY = "message";
+    private static final String DEFAULT_TICKER_KEY = "ticker";
 
     public GCMIntentService() {
         super("");
@@ -87,7 +93,7 @@ public class GCMIntentService extends GCMBaseIntentService {
         HashMap<String, Object> data = new HashMap<String, Object>();
         for (String key : intent.getExtras().keySet()) {
             String value = intent.getExtras().getString(key);
-            Log.d(LCAT, "Message key: " + key + " value: " + value);
+            Log.d(LCAT, "Message key: \"" + key + "\" value: \"" + value + "\"");
 
             if (key.equals("from") && value != null && value.startsWith("/topics/")) {
                 isTopic = true;
@@ -95,6 +101,25 @@ public class GCMIntentService extends GCMBaseIntentService {
 
             String eventKey = key.startsWith("data.") ? key.substring(5) : key;
             data.put(eventKey, intent.getExtras().getString(key));
+
+            if (value.startsWith("{")) {
+                Log.d(LCAT, "Parsing JSON string...");
+                try {
+                    JSONObject json = new JSONObject(value);
+
+                    Iterator<String> keys = json.keys();
+                    while (keys.hasNext()) {
+                        String jKey = keys.next();
+                        String jValue = json.getString(jKey);
+                        Log.d(LCAT, "JSON key: \"" + jKey + "\" value: \"" + jValue + "\"");
+
+                        data.put(jKey, jValue);
+                    }
+                }
+                catch(JSONException e) {
+                    Log.d(LCAT, "JSON error: " + e);
+                }
+            }
         }
 
         /* Store data to be retrieved when resuming app as a JSON object, serialized as a String, otherwise
@@ -112,6 +137,16 @@ public class GCMIntentService extends GCMBaseIntentService {
         boolean localOnly = true;
         int priority = 0;
         boolean bigText = false;
+        
+        Integer ledOn = null;
+        Integer ledOff = null;
+
+        String titleKey = DEFAULT_TITLE_KEY;
+        String messageKey = DEFAULT_MESSAGE_KEY;
+        String tickerKey = DEFAULT_TICKER_KEY;
+        String title = null;
+        String message = null;
+        String ticker = null;
 
         Map<String, Object> notificationSettings = new Gson().fromJson(TiApplication.getInstance().getAppProperties().getString(GCMModule.NOTIFICATION_SETTINGS, null), Map.class);
         if (notificationSettings != null) {
@@ -127,11 +162,11 @@ public class GCMIntentService extends GCMBaseIntentService {
                 Log.e(LCAT, "Invalid setting largeIcon, should be String");
             }
 
-            if (notificationSettings.get("sound") instanceof String) {
-                if (notificationSettings.get("sound") != null) {
+            if (notificationSettings.get("sound") != null) {
+                if (notificationSettings.get("sound") instanceof String) {
                     sound = (String) notificationSettings.get("sound");
                 } else {
-                    Log.e(LCAT, "Invalid setting sound, should be string");
+                    Log.e(LCAT, "Invalid setting sound, should be String");
                 }
             }
 
@@ -139,7 +174,7 @@ public class GCMIntentService extends GCMBaseIntentService {
                 if (notificationSettings.get("vibrate") instanceof Boolean) {
                     vibrate = (Boolean) notificationSettings.get("vibrate");
                 } else {
-                    Log.e(LCAT, "Invalid setting vibrate, should be boolean");
+                    Log.e(LCAT, "Invalid setting vibrate, should be Boolean");
                 }
             }
 
@@ -147,7 +182,7 @@ public class GCMIntentService extends GCMBaseIntentService {
                 if (notificationSettings.get("insistent") instanceof Boolean) {
                     insistent = (Boolean) notificationSettings.get("insistent");
                 } else {
-                    Log.e(LCAT, "Invalid setting insistent, should be boolean");
+                    Log.e(LCAT, "Invalid setting insistent, should be Boolean");
                 }
             }
 
@@ -155,7 +190,7 @@ public class GCMIntentService extends GCMBaseIntentService {
                 if (notificationSettings.get("group") instanceof String) {
                     group = (String) notificationSettings.get("group");
                 } else {
-                    Log.e(LCAT, "Invalid setting group, should be string");
+                    Log.e(LCAT, "Invalid setting group, should be String");
                 }
             }
 
@@ -163,7 +198,7 @@ public class GCMIntentService extends GCMBaseIntentService {
                 if (notificationSettings.get("localOnly") instanceof Boolean) {
                     localOnly = (Boolean) notificationSettings.get("localOnly");
                 } else {
-                    Log.e(LCAT, "Invalid setting localOnly, should be boolean");
+                    Log.e(LCAT, "Invalid setting localOnly, should be Boolean");
                 }
             }
 
@@ -181,7 +216,79 @@ public class GCMIntentService extends GCMBaseIntentService {
                 if (notificationSettings.get("bigText") instanceof Boolean) {
                     bigText = (Boolean) notificationSettings.get("bigText");
                 } else {
-                    Log.e(LCAT, "Invalid setting bigText, should be boolean");
+                    Log.e(LCAT, "Invalid setting bigText, should be Boolean");
+                }
+            }
+
+            if (notificationSettings.get("titleKey") != null) {
+                if (notificationSettings.get("titleKey") instanceof String) {
+                    titleKey = (String) notificationSettings.get("titleKey");
+                } else {
+                    Log.e(LCAT, "Invalid setting titleKey, should be String");
+                }
+            }
+
+            if (notificationSettings.get("messageKey") != null) {
+                if (notificationSettings.get("messageKey") instanceof String) {
+                    messageKey = (String) notificationSettings.get("messageKey");
+                } else {
+                    Log.e(LCAT, "Invalid setting messageKey, should be String");
+                }
+            }
+
+            if (notificationSettings.get("tickerKey") != null) {
+                if (notificationSettings.get("tickerKey") instanceof String) {
+                    tickerKey = (String) notificationSettings.get("tickerKey");
+                } else {
+                    Log.e(LCAT, "Invalid setting tickerKey, should be String");
+                }
+            }
+
+            if (notificationSettings.get("title") != null) {
+                if (notificationSettings.get("title") instanceof String) {
+                    title = (String) notificationSettings.get("title");
+                } else {
+                    Log.e(LCAT, "Invalid setting title, should be String");
+                }
+            }
+
+            if (notificationSettings.get("message") != null) {
+                if (notificationSettings.get("message") instanceof String) {
+                    message = (String) notificationSettings.get("message");
+                } else {
+                    Log.e(LCAT, "Invalid setting message, should be String");
+                }
+            }
+
+            if (notificationSettings.get("ticker") != null) {
+                if (notificationSettings.get("ticker") instanceof String) {
+                    ticker = (String) notificationSettings.get("ticker");
+                } else {
+                    Log.e(LCAT, "Invalid setting ticker, should be String");
+                }
+            }
+
+            if (notificationSettings.get("ledOn") != null) {
+                if (notificationSettings.get("ledOn") instanceof Integer) {
+                    ledOn = (Integer) notificationSettings.get("ledOn");
+                    if (ledOn < 0) {
+                        Log.e(LCAT, "Invalid setting ledOn, should be positive");
+                        ledOn = null;
+                    }
+                } else {
+                    Log.e(LCAT, "Invalid setting ledOn, should be Integer");
+                }
+            }
+
+            if (notificationSettings.get("ledOff") != null) {
+                if (notificationSettings.get("ledOff") instanceof Integer) {
+                    ledOff = (Integer) notificationSettings.get("ledOff");
+                    if (ledOff < 0) {
+                        Log.e(LCAT, "Invalid setting ledOff, should be positive");
+                        ledOff = null;
+                    }
+                } else {
+                    Log.e(LCAT, "Invalid setting ledOff, should be Integer");
                 }
             }
 
@@ -205,9 +312,16 @@ public class GCMIntentService extends GCMBaseIntentService {
         launcherIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
         launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
 
-        String title = (String) data.get("title");
-        String message = (String) data.get("message");
-        String ticker = (String) data.get("ticker");
+        /* Grab notification content from data according to provided keys if not already set */
+        if (title == null && titleKey != null) {
+            title = (String) data.get(titleKey);
+        }
+        if (message == null && messageKey != null) {
+            message = (String) data.get(messageKey);
+        }
+        if (ticker == null && tickerKey != null) {
+            ticker = (String) data.get(tickerKey);
+        }
 
         Log.i(LCAT, "Title: " + title);
         Log.i(LCAT, "Message: " + message);
@@ -301,7 +415,19 @@ public class GCMIntentService extends GCMBaseIntentService {
             }
             Log.i(LCAT, "Insistent: " + insistent);
 
-            notification.defaults |= Notification.DEFAULT_LIGHTS;
+            /* Specify LED flashing */
+            if (ledOn != null || ledOff != null) {
+                notification.flags |= Notification.FLAG_SHOW_LIGHTS;
+                if (ledOn != null) {
+                    notification.ledOnMS = ledOn;
+                }
+                if (ledOff != null) {
+                    notification.ledOffMS = ledOff;
+                }
+            } else {
+                notification.defaults |= Notification.DEFAULT_LIGHTS;
+            }
+
             notification.flags |= Notification.FLAG_AUTO_CANCEL;
 
             ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(1, notification);

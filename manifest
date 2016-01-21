@@ -3,6 +3,7 @@
 # during compilation, packaging, distribution, etc.
 #
 version: 1.4
+apiversion: 3
 description: Google Cloud Push for Titanium
 author: Jeroen van Vianen <jeroen@vanvianen.nl>
 license: Apache License, Version 2.0
@@ -13,5 +14,5 @@ name: Gcm
 moduleid: nl.vanvianen.android.gcm
 guid: A2371685-B58E-42E4-8403-DF23A877FF0C
 platform: android
-minsdk: 4.0.0.GA
+minsdk: 4.1.0
 architectures: armeabi;armeabi-v7a;x86
