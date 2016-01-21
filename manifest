@@ -9,13 +9,10 @@ author: Jeroen van Vianen <jeroen@vanvianen.nl>
 license: Apache License, Version 2.0
 copyright: Copyright (c) 2015 by Jeroen van Vianen
 
-architectures: armeabi armeabi-v7a x86
-
-
 # these should not be edited
 name: Gcm
 moduleid: nl.vanvianen.android.gcm
 guid: A2371685-B58E-42E4-8403-DF23A877FF0C
 platform: android
 minsdk: 5.1.2.GA
-architectures: armeabi;armeabi-v7a;x86
+architectures: armeabi;armeabi-v7a;x86;x86_64
