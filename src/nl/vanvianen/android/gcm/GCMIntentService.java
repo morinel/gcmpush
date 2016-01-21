@@ -148,6 +148,8 @@ public class GCMIntentService extends GCMBaseIntentService {
         String message = null;
         String ticker = null;
 
+        boolean backgroundOnly = false;
+
         Map<String, Object> notificationSettings = new Gson().fromJson(TiApplication.getInstance().getAppProperties().getString(GCMModule.NOTIFICATION_SETTINGS, null), Map.class);
         if (notificationSettings != null) {
             if (notificationSettings.get("smallIcon") instanceof String) {
@@ -292,6 +294,14 @@ public class GCMIntentService extends GCMBaseIntentService {
                 }
             }
 
+            if (notificationSettings.get("backgroundOnly") != null) {
+                if (notificationSettings.get("backgroundOnly") instanceof Boolean) {
+                    backgroundOnly = (Boolean) notificationSettings.get("backgroundOnly");
+                } else {
+                    Log.e(LCAT, "Invalid setting backgroundOnly, should be Boolean");
+                }
+            }
+
         } else {
             Log.d(LCAT, "No notification settings found");
         }
@@ -326,6 +336,11 @@ public class GCMIntentService extends GCMBaseIntentService {
         Log.i(LCAT, "Title: " + title);
         Log.i(LCAT, "Message: " + message);
         Log.i(LCAT, "Ticker: " + ticker);
+
+        if (backgroundOnly && GCMModule.getInstance().isInForeground()) {
+            Log.d(LCAT, "Notification received in foreground, no need for notification.");
+            return;
+        }
 
         if (message == null) {
             Log.d(LCAT, "Message received but no 'message' specified in push notification payload, so will make this silent");

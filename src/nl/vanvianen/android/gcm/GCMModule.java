@@ -26,6 +26,7 @@ import com.google.gson.Gson;
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollFunction;
 import org.appcelerator.kroll.KrollModule;
+import org.appcelerator.kroll.KrollRuntime;
 import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiApplication;
@@ -40,6 +41,7 @@ public class GCMModule extends KrollModule {
     private static final String LCAT = "GCMModule";
 
     private static GCMModule instance = null;
+    private static AppStateListener appStateListener = null;
 
     /* Callbacks for push notifications */
     private KrollFunction successCallback = null;
@@ -58,11 +60,21 @@ public class GCMModule extends KrollModule {
     public GCMModule() {
         super();
         instance = this;
+        if (appStateListener == null) {
+            appStateListener = new AppStateListener();
+            TiApplication.addActivityTransitionListener(appStateListener);
+        }
+        
+    }
+
+    public boolean isInForeground() {
+        return AppStateListener.oneActivityIsResumed;
     }
 
     @Kroll.method
     @SuppressWarnings("unchecked")
     public void registerPush(HashMap options) {
+
         Log.d(LCAT, "registerPush called");
 
         String senderId = (String) options.get("senderId");
@@ -273,6 +285,7 @@ public class GCMModule extends KrollModule {
         if (messageCallback != null) {
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("data", messageData);
+            data.put("inBackground", !isInForeground());
 
             messageCallback.call(getKrollObject(), data);
         } else {
@@ -284,6 +297,7 @@ public class GCMModule extends KrollModule {
         if (topicCallback != null) {
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("data", messageData);
+            data.put("inBackground", !isInForeground());
 
             topicCallback.call(getKrollObject(), data);
         } else {

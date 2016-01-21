@@ -4,7 +4,7 @@
 
 A Titanium module for registering a device with Google Cloud Messaging and handling push notifications sent to the device. Both push notifications and topic subscriptions are supported.
 
-1. Install the module as usual in Titanium Studio by downloading the [zip file](https://github.com/morinel/gcmpush/releases/download/1.2/nl.vanvianen.android.gcm-android-1.2.zip) or use ```gittio install nl.vanvianen.android.gcm```
+1. Install the module as usual in Titanium Studio by downloading the [zip file](https://github.com/morinel/gcmpush/releases/download/1.4/nl.vanvianen.android.gcm-android-1.4.zip) or use ```gittio install nl.vanvianen.android.gcm```
 1. Refer to the examples for possibilities.
 1. Send a server push notification with your preferred server-side technology to the registrationId returned while registering your device.
 1. The callback you specified will then be called.
@@ -74,6 +74,7 @@ See the [example](https://github.com/morinel/gcmpush/blob/master/example/app.js)
 1. **insistent** (true / false): whether the notification should be [insistent](http://developer.android.com/reference/android/app/Notification.html#FLAG_INSISTENT), default false.
 1. **group**: name of group to group similar notifications together, default null.
 1. **localOnly** (true / false): whether this notification should be bridged to other devices (false) or is only relevant to this device (true), default true.
+1. **backgroundOnly** (true / false): whether the app should only be notified when it's in the background, default false.
 1. **priority**: (integer) specifies the priority of the notification, should be between [PRIORITY_MIN](http://developer.android.com/reference/android/support/v4/app/NotificationCompat.html#PRIORITY_MIN) and [PRIORITY_MAX](http://developer.android.com/reference/android/support/v4/app/NotificationCompat.html#PRIORITY_MAX), default 0.
 1. **bigText** (true / false): whether this notification should use the [bigText style](http://developer.android.com/reference/android/app/Notification.BigTextStyle.html), default false.
 1. **titleKey** (string): specify a custom key name for the notification title sent by the server, default ```title```
@@ -92,7 +93,7 @@ If the app is not active when the notification is received, use gcm.getLastData(
 
 
 
-## Example server-side code to send a message to a topic ##
+## Example server-side code to send message to a topic ##
 
 ```java
 import org.apache.commons.io.IOUtils;
