@@ -337,7 +337,7 @@ public class GCMIntentService extends GCMBaseIntentService {
         Log.i(LCAT, "Message: " + message);
         Log.i(LCAT, "Ticker: " + ticker);
 
-        if (backgroundOnly && GCMModule.getInstance().isInForeground()) {
+        if (backgroundOnly && GCMModule.getInstance() != null && GCMModule.getInstance().isInForeground()) {
             Log.d(LCAT, "Notification received in foreground, no need for notification.");
             return;
         }
