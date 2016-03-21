@@ -16,6 +16,7 @@
 
 package nl.vanvianen.android.gcm;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -46,10 +47,13 @@ public class GCMIntentService extends GCMBaseIntentService {
     private static final String DEFAULT_TITLE_KEY = "title";
     private static final String DEFAULT_MESSAGE_KEY = "message";
     private static final String DEFAULT_TICKER_KEY = "ticker";
+    private final static AtomicInteger counter = new AtomicInteger(0);
 
     public GCMIntentService() {
         super("");
     }
+
+
 
     @Override
     public void onRegistered(Context context, String registrationId) {
@@ -64,6 +68,21 @@ public class GCMIntentService extends GCMBaseIntentService {
 
         GCMModule.getInstance().fireEvent(UNREGISTER_EVENT, new HashMap<String, Object>());
     }
+
+    private int getId() {
+	     return counter.incrementAndGet();
+    }
+
+    public int tryParse(Object obj) {
+      Integer retVal;
+      try {
+        retVal = Integer.parseInt((String) obj);
+      } catch (NumberFormatException nfe) {
+        retVal = 0; // or null if that is your preference
+      }
+      return retVal;
+    }
+
 
     private int getResource(String type, String name) {
         int icon = 0;
@@ -134,12 +153,13 @@ public class GCMIntentService extends GCMBaseIntentService {
         boolean vibrate = false;
         boolean insistent = false;
         String group = null;
+        int notificationId = 1;
         boolean localOnly = true;
         int priority = 0;
         boolean bigText = false;
-        
-        Integer ledOn = null;
-        Integer ledOff = null;
+
+        int ledOn = 0;
+        int ledOff = 0;
 
         String titleKey = DEFAULT_TITLE_KEY;
         String messageKey = DEFAULT_MESSAGE_KEY;
@@ -179,6 +199,8 @@ public class GCMIntentService extends GCMBaseIntentService {
                     Log.e(LCAT, "Invalid setting vibrate, should be Boolean");
                 }
             }
+
+              Log.i(LCAT, "vibrate: " + vibrate);
 
             if (notificationSettings.get("insistent") != null) {
                 if (notificationSettings.get("insistent") instanceof Boolean) {
@@ -271,11 +293,11 @@ public class GCMIntentService extends GCMBaseIntentService {
             }
 
             if (notificationSettings.get("ledOn") != null) {
-                if (notificationSettings.get("ledOn") instanceof Integer) {
-                    ledOn = (Integer) notificationSettings.get("ledOn");
+                if (notificationSettings.get("ledOn") instanceof String) {
+                    ledOn = tryParse(notificationSettings.get("ledOn"));
                     if (ledOn < 0) {
                         Log.e(LCAT, "Invalid setting ledOn, should be positive");
-                        ledOn = null;
+                        ledOn = 0;
                     }
                 } else {
                     Log.e(LCAT, "Invalid setting ledOn, should be Integer");
@@ -283,11 +305,11 @@ public class GCMIntentService extends GCMBaseIntentService {
             }
 
             if (notificationSettings.get("ledOff") != null) {
-                if (notificationSettings.get("ledOff") instanceof Integer) {
-                    ledOff = (Integer) notificationSettings.get("ledOff");
+                if (notificationSettings.get("ledOff") instanceof String) {
+                    ledOff = tryParse(notificationSettings.get("ledOff"));
                     if (ledOff < 0) {
                         Log.e(LCAT, "Invalid setting ledOff, should be positive");
-                        ledOff = null;
+                        ledOff = 0;
                     }
                 } else {
                     Log.e(LCAT, "Invalid setting ledOff, should be Integer");
@@ -369,9 +391,23 @@ public class GCMIntentService extends GCMBaseIntentService {
             }
             Log.i(LCAT, "Group: " + group);
 
+
+            /* Notification unique id, can also be set in the push notification payload */
+            if (data.get("notificationId") != null) {
+                notificationId = tryParse((String) data.get("notificationId"));
+            }
+
+            if(notificationId == 0)
+            {
+                notificationId = getId();
+            }
+
+            Log.i(LCAT, "notificationId: " + notificationId);
+
+
             /* Whether notification should be for this device only or bridged to other devices, can also be set in the push notification payload */
             if (data.get("localOnly") != null) {
-                localOnly = Boolean.getBoolean((String) data.get("localOnly"));
+                localOnly = Boolean.valueOf((String) data.get("localOnly"));
             }
             builder.setLocalOnly(localOnly);
             Log.i(LCAT, "LocalOnly: " + localOnly);
@@ -389,7 +425,7 @@ public class GCMIntentService extends GCMBaseIntentService {
 
             /* Specify whether bigtext should be used, can also be set in the push notification payload */
             if (data.get("bigText") != null) {
-                bigText = Boolean.getBoolean((String) data.get("bigText"));
+                bigText = Boolean.valueOf((String) data.get("bigText"));
             }
             if (bigText) {
                 builder.setStyle(new NotificationCompat.BigTextStyle().bigText(message));
@@ -412,9 +448,11 @@ public class GCMIntentService extends GCMBaseIntentService {
                 notification.sound = Uri.parse("android.resource://" + pkg + "/" + getResource("raw", sound));
             }
 
+            Log.i(LCAT, "Vibrate: " + vibrate);
+
             /* Vibrate, can also be set in the push notification payload */
             if (data.get("vibrate") != null) {
-                vibrate = Boolean.getBoolean((String) data.get("vibrate"));
+                vibrate = Boolean.valueOf((String) data.get("vibrate"));
             }
             if (vibrate) {
                 notification.defaults |= Notification.DEFAULT_VIBRATE;
@@ -431,21 +469,25 @@ public class GCMIntentService extends GCMBaseIntentService {
             Log.i(LCAT, "Insistent: " + insistent);
 
             /* Specify LED flashing */
-            if (ledOn != null || ledOff != null) {
+            if (ledOn > 0 || ledOff > 0) {
                 notification.flags |= Notification.FLAG_SHOW_LIGHTS;
-                if (ledOn != null) {
+                if (ledOn > 0) {
                     notification.ledOnMS = ledOn;
                 }
-                if (ledOff != null) {
+                if (ledOff > 0) {
                     notification.ledOffMS = ledOff;
                 }
             } else {
                 notification.defaults |= Notification.DEFAULT_LIGHTS;
             }
 
+            Log.i(LCAT, "ledOn: " + ledOn);
+            Log.i(LCAT, "ledOff: " + ledOff);
+
+
             notification.flags |= Notification.FLAG_AUTO_CANCEL;
 
-            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(1, notification);
+            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(notificationId, notification);
         }
 
         if (GCMModule.getInstance() != null) {
