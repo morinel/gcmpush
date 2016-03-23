@@ -448,7 +448,7 @@ public class GCMIntentService extends GCMBaseIntentService {
                 notification.sound = Uri.parse("android.resource://" + pkg + "/" + getResource("raw", sound));
             }
 
-            Log.i(LCAT, "Vibrate: " + vibrate);
+            Log.i(LCAT, "Vibrate 1: " + vibrate);
 
             /* Vibrate, can also be set in the push notification payload */
             if (data.get("vibrate") != null) {
@@ -456,8 +456,9 @@ public class GCMIntentService extends GCMBaseIntentService {
             }
             if (vibrate) {
                 notification.defaults |= Notification.DEFAULT_VIBRATE;
+                Log.i(LCAT, "Vibrate 2: " + vibrate);
             }
-            Log.i(LCAT, "Vibrate: " + vibrate);
+            Log.i(LCAT, "Vibrate 3: " + vibrate);
 
             /* Insistent, can also be set in the push notification payload */
             if ("true".equals(data.get("insistent"))) {
@@ -468,21 +469,27 @@ public class GCMIntentService extends GCMBaseIntentService {
             }
             Log.i(LCAT, "Insistent: " + insistent);
 
+            Log.i(LCAT, "ledOn 1: " + ledOn);
+            Log.i(LCAT, "ledOff 1: " + ledOff);
+
             /* Specify LED flashing */
             if (ledOn > 0 || ledOff > 0) {
                 notification.flags |= Notification.FLAG_SHOW_LIGHTS;
                 if (ledOn > 0) {
                     notification.ledOnMS = ledOn;
+                    Log.i(LCAT, "ledOn 2: " + ledOn);
                 }
                 if (ledOff > 0) {
                     notification.ledOffMS = ledOff;
+                    Log.i(LCAT, "ledOff 2: " + ledOff);
                 }
             } else {
                 notification.defaults |= Notification.DEFAULT_LIGHTS;
+                Log.i(LCAT, "led: DEFAULT_LIGHTS");
             }
 
-            Log.i(LCAT, "ledOn: " + ledOn);
-            Log.i(LCAT, "ledOff: " + ledOff);
+            Log.i(LCAT, "ledOn 3: " + ledOn);
+            Log.i(LCAT, "ledOff 3: " + ledOff);
 
 
             notification.flags |= Notification.FLAG_AUTO_CANCEL;
