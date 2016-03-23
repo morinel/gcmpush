@@ -51,6 +51,9 @@ gcm.registerPush({
 			dialog.hide();
 			if (event.index == 0) {
 				/* Do stuff to view the notification */
+				gcm.cancelNotificationById(parseInt(<notificationId>));
+				// notificationId param comes from remote server's payload json which user defined.
+				// Anyway notificationId is using in GCMIntentService.java for separately shown more than notification.
 			}
 		});
 		dialog.show();			       

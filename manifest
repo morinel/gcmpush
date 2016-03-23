@@ -3,7 +3,7 @@
 # during compilation, packaging, distribution, etc.
 #
 version: 1.4
-apiversion: 3
+apiversion: 2
 description: Google Cloud Push for Titanium
 author: Jeroen van Vianen <jeroen@vanvianen.nl>
 license: Apache License, Version 2.0
