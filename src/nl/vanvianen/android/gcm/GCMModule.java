@@ -16,6 +16,8 @@
 
 package nl.vanvianen.android.gcm;
 
+import android.app.NotificationManager;
+
 import android.app.Activity;
 import android.os.AsyncTask;
 import com.google.android.gcm.GCMRegistrar;
@@ -64,7 +66,7 @@ public class GCMModule extends KrollModule {
             appStateListener = new AppStateListener();
             TiApplication.addActivityTransitionListener(appStateListener);
         }
-        
+
     }
 
     public boolean isInForeground() {
@@ -236,6 +238,18 @@ public class GCMModule extends KrollModule {
     @Kroll.method
     public void clearLastData() {
         TiApplication.getInstance().getAppProperties().removeProperty(LAST_DATA);
+    }
+
+    @Kroll.method
+    public void cancelNotificationById(int notificationId) {
+      try
+      {
+        NotificationManager notificationManager = (NotificationManager) TiApplication.getInstance().getApplicationContext().getSystemService(TiApplication.NOTIFICATION_SERVICE);
+        notificationManager.cancel(notificationId);
+         Log.i(LCAT, "NotificationId: " + notificationId + " cleared seuccesfully");
+      } catch (Exception ex) {
+         Log.e(LCAT, "Cannot cancel notificationId:" + notificationId + " Error: " + ex.getMessage());
+     }
     }
 
     @Kroll.method
