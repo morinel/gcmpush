@@ -17,6 +17,7 @@
 package nl.vanvianen.android.gcm;
 
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.os.AsyncTask;
 import com.google.android.gcm.GCMRegistrar;
 import com.google.android.gms.gcm.GcmPubSub;
@@ -26,7 +27,6 @@ import com.google.gson.Gson;
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollFunction;
 import org.appcelerator.kroll.KrollModule;
-import org.appcelerator.kroll.KrollRuntime;
 import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiApplication;
@@ -236,6 +236,21 @@ public class GCMModule extends KrollModule {
     @Kroll.method
     public void clearLastData() {
         TiApplication.getInstance().getAppProperties().removeProperty(LAST_DATA);
+    }
+
+    /**
+     * Cancel a notification by the id given in the payload.
+     * @param notificationId
+     */
+    @Kroll.method
+    public void cancelNotificationById(int notificationId) {
+        try {
+            NotificationManager notificationManager = (NotificationManager) TiApplication.getInstance().getApplicationContext().getSystemService(TiApplication.NOTIFICATION_SERVICE);
+            notificationManager.cancel(notificationId);
+            Log.i(LCAT, "Notification " + notificationId + " cleared successfully");
+        } catch (Exception ex) {
+            Log.e(LCAT, "Cannot cancel notification:" + notificationId + " Error: " + ex.getMessage());
+        }
     }
 
     @Kroll.method
