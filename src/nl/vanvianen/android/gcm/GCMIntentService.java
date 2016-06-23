@@ -349,21 +349,20 @@ public class GCMIntentService extends GCMBaseIntentService {
         Log.i(LCAT, "Message: " + message);
         Log.i(LCAT, "Ticker: " + ticker);
 
-		/* Check for app state */
+        /* Check for app state */
         if (GCMModule.getInstance() != null) {
-        	/* Send data to app */
+            /* Send data to app */
             if (isTopic) {
                 GCMModule.getInstance().sendTopicMessage(data);
             } else {
                 GCMModule.getInstance().sendMessage(data);
             }
-
-			/* Do not create notification if backgroundOnly and app is in foreground */
+            /* Do not create notification if backgroundOnly and app is in foreground */
             if (backgroundOnly && GCMModule.getInstance().isInForeground()) {
                 Log.d(LCAT, "Notification received in foreground, no need for notification.");
                 return;
             }
-		}
+        }
 
         if (message == null) {
             Log.d(LCAT, "Message received but no 'message' specified in push notification payload, so will make this silent");
