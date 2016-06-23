@@ -12,14 +12,22 @@ gcm.registerPush({
 	/* It's the same as your project id */
 	senderId: 'XXXXXXXX',
 	notificationSettings: {
-		sound: 'mysound.mp3', /* Place soudn file in platform/android/res/raw/mysound.mp3 */
+		sound: 'mysound.mp3', /* Place sound file in platform/android/res/raw/mysound.mp3 */
 		smallIcon: 'notification_icon.png',  /* Place icon in platform/android/res/drawable/notification_icon.png */
 		largeIcon: 'appicon.png',  /* Same */
 		vibrate: true,  /* Whether the phone should vibrate */
 		insistent: true,  /* Whether the notification should be insistent */
 		group: 'MyNotificationGroup',  /* Name of group to group similar notifications together */
         localOnly: false,  /* Whether this notification should be bridged to other devices */
-        priority: +2  /* Notification priority, from -2 to +2 */
+        priority: +2,  /* Notification priority, from -2 to +2 */
+		bigText: false,
+        /* You can also set a static value for title, message, or ticker. If you set a value here, the key will be ignored. */
+        // title: '',
+        // message: '',
+        // ticker: ''
+		/* Add LED flashing */
+		ledOn: 200,
+		ledOff: 300
 	},
 	success: function (event) {
 		Ti.API.info("Push registration success: " + JSON.stringify(event));

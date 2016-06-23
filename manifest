@@ -2,7 +2,7 @@
 # this is your module manifest and used by Titanium
 # during compilation, packaging, distribution, etc.
 #
-version: 1.2
+version: 1.5
 apiversion: 3
 description: Google Cloud Push for Titanium
 author: Jeroen van Vianen <jeroen@vanvianen.nl>
@@ -14,5 +14,5 @@ name: Gcm
 moduleid: nl.vanvianen.android.gcm
 guid: A2371685-B58E-42E4-8403-DF23A877FF0C
 platform: android
-minsdk: 3.5.1
-architectures: armeabi;armeabi-v7a;x86
+minsdk: 5.1.2.GA
+architectures: armeabi;armeabi-v7a;x86;x86_64

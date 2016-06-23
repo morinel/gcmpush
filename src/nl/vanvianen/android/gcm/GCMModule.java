@@ -17,6 +17,7 @@
 package nl.vanvianen.android.gcm;
 
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.os.AsyncTask;
 import com.google.android.gcm.GCMRegistrar;
 import com.google.android.gms.gcm.GcmPubSub;
@@ -40,6 +41,7 @@ public class GCMModule extends KrollModule {
     private static final String LCAT = "GCMModule";
 
     private static GCMModule instance = null;
+    private static AppStateListener appStateListener = null;
 
     /* Callbacks for push notifications */
     private KrollFunction successCallback = null;
@@ -58,11 +60,21 @@ public class GCMModule extends KrollModule {
     public GCMModule() {
         super();
         instance = this;
+        if (appStateListener == null) {
+            appStateListener = new AppStateListener();
+            TiApplication.addActivityTransitionListener(appStateListener);
+        }
+        
+    }
+
+    public boolean isInForeground() {
+        return AppStateListener.oneActivityIsResumed;
     }
 
     @Kroll.method
     @SuppressWarnings("unchecked")
     public void registerPush(HashMap options) {
+
         Log.d(LCAT, "registerPush called");
 
         String senderId = (String) options.get("senderId");
@@ -226,6 +238,21 @@ public class GCMModule extends KrollModule {
         TiApplication.getInstance().getAppProperties().removeProperty(LAST_DATA);
     }
 
+    /**
+     * Cancel a notification by the id given in the payload.
+     * @param notificationId
+     */
+    @Kroll.method
+    public void cancelNotificationById(int notificationId) {
+        try {
+            NotificationManager notificationManager = (NotificationManager) TiApplication.getInstance().getApplicationContext().getSystemService(TiApplication.NOTIFICATION_SERVICE);
+            notificationManager.cancel(notificationId);
+            Log.i(LCAT, "Notification " + notificationId + " cleared successfully");
+        } catch (Exception ex) {
+            Log.e(LCAT, "Cannot cancel notification:" + notificationId + " Error: " + ex.getMessage());
+        }
+    }
+
     @Kroll.method
     @Kroll.getProperty
     @SuppressWarnings("unchecked")
@@ -273,6 +300,7 @@ public class GCMModule extends KrollModule {
         if (messageCallback != null) {
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("data", messageData);
+            data.put("inBackground", !isInForeground());
 
             messageCallback.call(getKrollObject(), data);
         } else {
@@ -284,6 +312,7 @@ public class GCMModule extends KrollModule {
         if (topicCallback != null) {
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("data", messageData);
+            data.put("inBackground", !isInForeground());
 
             topicCallback.call(getKrollObject(), data);
         } else {

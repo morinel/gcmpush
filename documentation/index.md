@@ -4,7 +4,7 @@
 
 A Titanium module for registering a device with Google Cloud Messaging and handling push notifications sent to the device. Both push notifications and topic subscriptions are supported.
 
-1. Install the module as usual in Titanium Studio by downloading the [zip file](https://github.com/morinel/gcmpush/releases/download/1.2/nl.vanvianen.android.gcm-android-1.2.zip) or use ```gittio install nl.vanvianen.android.gcm```
+1. Install the module as usual in Titanium Studio by downloading the [zip file](https://github.com/morinel/gcmpush/releases/download/1.5/nl.vanvianen.android.gcm-android-1.5.zip) or use ```gittio install nl.vanvianen.android.gcm```
 1. Refer to the examples for possibilities.
 1. Send a server push notification with your preferred server-side technology to the registrationId returned while registering your device.
 1. The callback you specified will then be called.
@@ -42,6 +42,10 @@ public void sendPush() {
         .addData("priority", "2")
         .addData("localOnly", "false")
         .addData("group", "mygroup")
+        .addData("bigText", "true")
+        .addData("ledOn", "200")
+        .addData("ledOff", "300")
+        .addData("notificationId", "12345");
         .build();
     try {
         /* Use the registrationIds returned in the success handler in the apps registerPush() call. */
@@ -71,15 +75,27 @@ See the [example](https://github.com/morinel/gcmpush/blob/master/example/app.js)
 1. **insistent** (true / false): whether the notification should be [insistent](http://developer.android.com/reference/android/app/Notification.html#FLAG_INSISTENT), default false.
 1. **group**: name of group to group similar notifications together, default null.
 1. **localOnly** (true / false): whether this notification should be bridged to other devices (false) or is only relevant to this device (true), default true.
+1. **backgroundOnly** (true / false): whether the app should only be notified when it's in the background, default false.
 1. **priority**: (integer) specifies the priority of the notification, should be between [PRIORITY_MIN](http://developer.android.com/reference/android/support/v4/app/NotificationCompat.html#PRIORITY_MIN) and [PRIORITY_MAX](http://developer.android.com/reference/android/support/v4/app/NotificationCompat.html#PRIORITY_MAX), default 0.
+1. **bigText** (true / false): whether this notification should use the [bigText style](http://developer.android.com/reference/android/app/Notification.BigTextStyle.html), default false.
+1. **titleKey** (string): specify a custom key name for the notification title sent by the server, default ```title```
+1. **messageKey** (string): specify a custom key name for the notification message sent by the server, default ```message```
+1. **tickerKey** (string): specify a custom key name for the notification ticker text sent by the server, default ```ticker```
+1. **title** (string): specify a static title for the notification (server data will be ignored)
+1. **message** (string): specify a static message for the notification (server data will be ignored)
+1. **ticker** (string): specify a static ticker for the notification (server data will be ignored)
+1. **ledOn** (integer): the number of ms the LED should be on while flashing, see  [javadoc](http://developer.android.com/reference/android/app/Notification.html#ledOnMS)
+1. **ledOff** (integer): the number of ms the LED should be off while flashing, see [javadoc](http://developer.android.com/reference/android/app/Notification.html#ledOffMS)
+1. **notificationId** (integer): a (unique) integer to identify the notification. If specified, subsequent notifications will not override the previous one.
 
-The settings sound, vibrate, insistent, group, localOnly and priority can also be set as data in the push message being received (see the server-side example above).
+
+The settings sound, vibrate, insistent, group, localOnly, priority, bigText and notificationId can also be set as data in the push message being received (see the server-side example above).
 
 If the app is not active when the notification is received, use gcm.getLastData() to retrieve the contents of the notification and act accordingly to start or resume the app in a suitable way. If you're done, call gcm.clearLastData(), otherwise the same logic will happen when resuming the app again, see the [example](https://github.com/morinel/gcmpush/blob/master/example/app.js).
 
 
 
-## Example server-side code to send a message to a topic ##
+## Example server-side code to send message to a topic ##
 
 ```java
 import org.apache.commons.io.IOUtils;
@@ -93,7 +109,7 @@ public void sendTopic(e) throws Exception {
     JSONObject json = new JSONObject();
     JSONObject data = new JSONObject();
     data.put("message", "Lorem ipsum dolor sit amet");
-    /* Add any other notification settings here, see the push notification server-side example */
+    // Add any other notification settings here, see the push notification server-side example
 
     json.put("to", "/topics/mytopic");
     json.put("data", data);
