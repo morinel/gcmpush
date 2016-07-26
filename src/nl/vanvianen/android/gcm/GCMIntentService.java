@@ -34,8 +34,9 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class GCMIntentService extends GCMBaseIntentService {
 
@@ -46,6 +47,8 @@ public class GCMIntentService extends GCMBaseIntentService {
     private static final String DEFAULT_TITLE_KEY = "title";
     private static final String DEFAULT_MESSAGE_KEY = "message";
     private static final String DEFAULT_TICKER_KEY = "ticker";
+
+    private final static AtomicInteger notificationCounter = new AtomicInteger(0);
 
     public GCMIntentService() {
         super("");
@@ -137,6 +140,7 @@ public class GCMIntentService extends GCMBaseIntentService {
         boolean localOnly = true;
         int priority = 0;
         boolean bigText = false;
+        int notificationId = 1;
         
         Integer ledOn = null;
         Integer ledOff = null;
@@ -302,6 +306,14 @@ public class GCMIntentService extends GCMBaseIntentService {
                 }
             }
 
+            if (notificationSettings.get("notificationId") != null) {
+                if (notificationSettings.get("notificationId") instanceof Integer) {
+                    notificationId = (Integer) notificationSettings.get("notificationId");
+                } else {
+                    Log.e(LCAT, "Invalid setting notificationId, should be Integer");
+                }
+            }
+
         } else {
             Log.d(LCAT, "No notification settings found");
         }
@@ -337,9 +349,19 @@ public class GCMIntentService extends GCMBaseIntentService {
         Log.i(LCAT, "Message: " + message);
         Log.i(LCAT, "Ticker: " + ticker);
 
-        if (backgroundOnly && GCMModule.getInstance() != null && GCMModule.getInstance().isInForeground()) {
-            Log.d(LCAT, "Notification received in foreground, no need for notification.");
-            return;
+        /* Check for app state */
+        if (GCMModule.getInstance() != null) {
+            /* Send data to app */
+            if (isTopic) {
+                GCMModule.getInstance().sendTopicMessage(data);
+            } else {
+                GCMModule.getInstance().sendMessage(data);
+            }
+            /* Do not create notification if backgroundOnly and app is in foreground */
+            if (backgroundOnly && GCMModule.getInstance().isInForeground()) {
+                Log.d(LCAT, "Notification received in foreground, no need for notification.");
+                return;
+            }
         }
 
         if (message == null) {
@@ -371,7 +393,7 @@ public class GCMIntentService extends GCMBaseIntentService {
 
             /* Whether notification should be for this device only or bridged to other devices, can also be set in the push notification payload */
             if (data.get("localOnly") != null) {
-                localOnly = Boolean.getBoolean((String) data.get("localOnly"));
+                localOnly = Boolean.valueOf((String) data.get("localOnly"));
             }
             builder.setLocalOnly(localOnly);
             Log.i(LCAT, "LocalOnly: " + localOnly);
@@ -389,7 +411,7 @@ public class GCMIntentService extends GCMBaseIntentService {
 
             /* Specify whether bigtext should be used, can also be set in the push notification payload */
             if (data.get("bigText") != null) {
-                bigText = Boolean.getBoolean((String) data.get("bigText"));
+                bigText = Boolean.valueOf((String) data.get("bigText"));
             }
             if (bigText) {
                 builder.setStyle(new NotificationCompat.BigTextStyle().bigText(message));
@@ -414,7 +436,7 @@ public class GCMIntentService extends GCMBaseIntentService {
 
             /* Vibrate, can also be set in the push notification payload */
             if (data.get("vibrate") != null) {
-                vibrate = Boolean.getBoolean((String) data.get("vibrate"));
+                vibrate = Boolean.valueOf((String) data.get("vibrate"));
             }
             if (vibrate) {
                 notification.defaults |= Notification.DEFAULT_VIBRATE;
@@ -429,6 +451,22 @@ public class GCMIntentService extends GCMBaseIntentService {
                 notification.flags |= Notification.FLAG_INSISTENT;
             }
             Log.i(LCAT, "Insistent: " + insistent);
+
+            /* notificationId, set in push payload to specify multiple notifications should be shown. If not specified, subsequent notifications "override / overwrite" the older ones */
+            if (data.get("notificationId") != null) {
+                if (data.get("notificationId") instanceof Integer) {
+                    notificationId = (Integer) data.get("notificationId");
+                } else if (data.get("notificationId") instanceof String) {
+                    try {
+                        notificationId = Integer.parseInt((String) data.get("notificationId"));
+                    } catch (NumberFormatException ex) {
+                        Log.e(LCAT, "Invalid setting notificationId, should be Integer");
+                    }
+                } else {
+                    Log.e(LCAT, "Invalid setting notificationId, should be Integer");
+                }
+            }
+            Log.i(LCAT, "Notification ID: " + notificationId);
 
             /* Specify LED flashing */
             if (ledOn != null || ledOff != null) {
@@ -445,15 +483,7 @@ public class GCMIntentService extends GCMBaseIntentService {
 
             notification.flags |= Notification.FLAG_AUTO_CANCEL;
 
-            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(1, notification);
-        }
-
-        if (GCMModule.getInstance() != null) {
-            if (isTopic) {
-                GCMModule.getInstance().sendTopicMessage(data);
-            } else {
-                GCMModule.getInstance().sendMessage(data);
-            }
+            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(notificationId, notification);
         }
     }
 
