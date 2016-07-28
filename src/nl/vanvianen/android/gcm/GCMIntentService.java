@@ -105,7 +105,7 @@ public class GCMIntentService extends GCMBaseIntentService {
             String eventKey = key.startsWith("data.") ? key.substring(5) : key;
             data.put(eventKey, intent.getExtras().getString(key));
 
-            if (value.startsWith("{")) {
+            if (value != null && value.startsWith("{")) {
                 Log.d(LCAT, "Parsing JSON string...");
                 try {
                     JSONObject json = new JSONObject(value);
