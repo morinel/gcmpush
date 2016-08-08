@@ -95,20 +95,20 @@ public class GCMIntentService extends GCMBaseIntentService {
 
         HashMap<String, Object> data = new HashMap<String, Object>();
         for (String key : intent.getExtras().keySet()) {
-            String value = intent.getExtras().getString(key);
+            Object value = intent.getExtras().get(key);
             Log.d(LCAT, "Message key: \"" + key + "\" value: \"" + value + "\"");
 
-            if (key.equals("from") && value != null && value.startsWith("/topics/")) {
+            if (key.equals("from") && value instanceof String && ((String) value).startsWith("/topics/")) {
                 isTopic = true;
             }
 
             String eventKey = key.startsWith("data.") ? key.substring(5) : key;
-            data.put(eventKey, intent.getExtras().getString(key));
+            data.put(eventKey, intent.getExtras().get(key));
 
-            if (value.startsWith("{")) {
+            if (value instanceof String && ((String) value).startsWith("{")) {
                 Log.d(LCAT, "Parsing JSON string...");
                 try {
-                    JSONObject json = new JSONObject(value);
+                    JSONObject json = new JSONObject((String) value);
 
                     Iterator<String> keys = json.keys();
                     while (keys.hasNext()) {
@@ -118,9 +118,8 @@ public class GCMIntentService extends GCMBaseIntentService {
 
                         data.put(jKey, jValue);
                     }
-                }
-                catch(JSONException e) {
-                    Log.d(LCAT, "JSON error: " + e);
+                } catch(JSONException ex) {
+                    Log.d(LCAT, "JSON error: " + ex.getMessage());
                 }
             }
         }
