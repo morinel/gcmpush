@@ -1,4 +1,11 @@
+.DS_Store
+.apt_generated
+.project
+.settings
+java-sources.txt
+tmp
+node_modules
+libs
+bin
 build
 dist
-libs
-build.properties

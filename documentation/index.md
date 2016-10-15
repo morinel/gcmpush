@@ -9,6 +9,15 @@ A Titanium module for registering a device with Google Cloud Messaging and handl
 1. Send a server push notification with your preferred server-side technology to the registrationId returned while registering your device.
 1. The callback you specified will then be called.
 
+In order to configure ADM properly, you must include the plugin as shown below and replace the conent of `api_key.txt` with your api key.
+
+```xml
+<plugins>
+    <plugin version="1.0">ti.alloy</plugin>
+    <plugin>gcmpush</plugin>
+</plugins>
+```
+
 This module does not require any tiapp.xml properties, all configuration is done in Javascript.
 
 ## Example server-side code to send a push notification ##
