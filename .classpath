@@ -5,9 +5,9 @@
 	<classpathentry kind="lib" path="/Applications/android-sdk/platforms/android-23/android.jar"/>
 	<classpathentry kind="lib" path="/Applications/android-sdk/add-ons/addon-google_apis-google-23/libs/maps.jar"/>
 	<classpathentry kind="lib" path="/Applications/android-sdk/extras/android/support/v7/appcompat/libs/android-support-v4.jar"/>
-	<classpathentry kind="lib" path="/Users/manojkumar/Library/Application Support/Titanium/mobilesdk/osx/5.1.2.GA/android/titanium.jar"/>
-	<classpathentry kind="lib" path="/Users/manojkumar/Library/Application Support/Titanium/mobilesdk/osx/5.1.2.GA/android/kroll-common.jar"/>
-	<classpathentry kind="lib" path="/Users/manojkumar/Library/Application Support/Titanium/mobilesdk/osx/5.1.2.GA/android/kroll-apt.jar"/>
+	<classpathentry kind="lib" path="/Users/manojkumar/Library/Application Support/Titanium/mobilesdk/osx/5.4.0.GA/android/titanium.jar"/>
+	<classpathentry kind="lib" path="/Users/manojkumar/Library/Application Support/Titanium/mobilesdk/osx/5.4.0.GA/android/kroll-common.jar"/>
+	<classpathentry kind="lib" path="/Users/manojkumar/Library/Application Support/Titanium/mobilesdk/osx/5.4.0.GA/android/kroll-apt.jar"/>
 	<classpathentry kind="lib" path="android/lib/amazon-device-messaging-1.0.1.jar"/>
 	<classpathentry kind="lib" path="android/lib/gson-2.3.1.jar"/>
 	<classpathentry kind="lib" path="android/lib/gcm-server.jar"/>

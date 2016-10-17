@@ -9,7 +9,7 @@ Read the [documentation](https://github.com/morinel/gcmpush/blob/master/document
 To build, create a `build.properties` file with the following content:
 
 ```
-titanium.platform=/Users/###USER###/Library/Application Support/Titanium/mobilesdk/osx/5.1.2.GA/android
+titanium.platform=/Users/###USER###/Library/Application Support/Titanium/mobilesdk/osx/5.4.0.GA/android
 android.platform=/Users/###USER###/Library/Android/sdk/platforms/android-23
 google.apis=/Users/###USER###/Library/Android/sdk/add-ons/addon-google_apis-google-23
 android.ndk=/Users/###USER###/Library/Android/ndk
