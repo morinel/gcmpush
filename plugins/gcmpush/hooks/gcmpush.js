@@ -7,21 +7,22 @@ var LCAT = "GCMPush",
 
 exports.init = function(logger, config, cli, nodeappc) {
 
-	var opts = config.appc.opts;
+	var platform = cli.argv.platform,
+	    projectDir = cli.argv["project-dir"];
 
 	/**
 	 * delete amazon-device-messaging stub library from libs
 	 * ToDo: handle with Ant at module build time
 	 */
 	cli.on("build.pre.compile", function(data, done) {
-		if (opts.platform === "android") {
+		if (platform === "android") {
 			var moduleId = "nl.vanvianen.android.gcm",
 			    modules = cli.tiapp.modules,
 			    modulePath;
 			for (var i in modules) {
 				var module = modules[i];
 				if (module.id === moduleId) {
-					modulePath = path.join(opts.projectDir, "modules/android", moduleId, module.version, "lib");
+					modulePath = path.join(projectDir, "modules/android", moduleId, module.version, "lib");
 					break;
 				}
 			}
