@@ -7,6 +7,14 @@ if (lastData) {
 	gcm.clearLastData();
 }
 
+/**
+ * If you are running on a amazon kindle fire device that supports ADM, 
+ * then this module will automatically initate ADM instead of GCM.
+ */
+if (gcm.isADMSupported()) {
+   // write any adm specific code here
+}
+
 gcm.registerPush({
 	/* The Sender ID from Google Developers Console, see https://console.developers.google.com/project/XXXXXXXX/apiui/credential */
 	/* It's the same as your project id */

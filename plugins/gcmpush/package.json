@@ -1,0 +1,10 @@
+{
+  "id": "gcmpush",
+  "name": "gcmpush",
+  "author": "Manoj Kumar",
+  "version": "1.0.0",
+  "copyright": "Copyright (c) 2016",
+  "dependencies": {
+    "androidmanifest": "^2.0.0"
+  }
+}

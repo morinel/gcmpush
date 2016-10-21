@@ -11,6 +11,23 @@ A Titanium module for registering a device with Google Cloud Messaging and handl
 
 This module does not require any tiapp.xml properties, all configuration is done in Javascript.
 
+In order to configure ADM properly, you must include this [plugin](https://github.com/morinel/gcmpush/tree/master/plugins/gcmpush) as shown below and replace the conent of [api_key.txt](https://github.com/morinel/gcmpush/blob/master/platform/android/assets/api_key.txt) with your api key.
+
+```xml
+<plugins>
+    <plugin version="1.0">ti.alloy</plugin>
+    <plugin>gcmpush</plugin>
+</plugins>
+```
+
+Then you must install the dependent node modules of this plugin by running  `npm install` from plugin's root directory.
+
+This plugin must know the module version you are using, so you must specify the `version` property on the module tag in `tiapp.xml`
+
+```xml
+<module platform="android" version="1.8.0">nl.vanvianen.android.gcm</module>
+```
+
 ## Example server-side code to send a push notification ##
 
 Use the following dependency:
