@@ -22,7 +22,7 @@ $ ant clean
 $ ant
 ```
 
-Add the code below to your code to extract data from notification.
+Add the code below to your code to extract data from notification and just forget the callback function that used to get the gcm's lastData.
 
 ```
 if (Ti.UI.Android) {
