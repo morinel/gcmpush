@@ -33,10 +33,15 @@ import org.appcelerator.titanium.util.TiRHelper;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.lang.Math;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import android.app.ActivityManager;
+import android.app.ActivityManager.RunningTaskInfo;
+import java.util.ArrayList;
 
 public class GCMIntentService extends GCMBaseIntentService {
 
@@ -52,6 +57,22 @@ public class GCMIntentService extends GCMBaseIntentService {
 
     public GCMIntentService() {
         super("");
+    }
+
+    public static boolean getAppIsRunning(Context cont) {
+        ActivityManager am = (ActivityManager) cont
+                .getSystemService(Context.ACTIVITY_SERVICE);
+        @SuppressWarnings("deprecation")
+        ArrayList<RunningTaskInfo> list = (ArrayList<RunningTaskInfo>) am
+                .getRunningTasks(100);
+        String MY_PKG_NAME = cont.getPackageName();
+        for (RunningTaskInfo info : list) {
+            if (info.topActivity.getPackageName().equals(MY_PKG_NAME)
+                    || info.baseActivity.getPackageName().equals(MY_PKG_NAME)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -91,6 +112,9 @@ public class GCMIntentService extends GCMBaseIntentService {
     protected void onMessage(Context context, Intent intent) {
         Log.d(LCAT, "Push notification received");
 
+        if (AppStateService.initAppStateService(TiApplication.getInstance())) {
+            return;
+        }
         boolean isTopic = false;
 
         HashMap<String, Object> data = new HashMap<String, Object>();
@@ -140,7 +164,7 @@ public class GCMIntentService extends GCMBaseIntentService {
         int priority = 0;
         boolean bigText = false;
         int notificationId = 1;
-        
+
         Integer ledOn = null;
         Integer ledOff = null;
 
@@ -332,6 +356,7 @@ public class GCMIntentService extends GCMBaseIntentService {
         Intent launcherIntent = TiApplication.getInstance().getApplicationContext().getPackageManager().getLaunchIntentForPackage(pkg);
         launcherIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
         launcherIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+        launcherIntent.putExtra("datas",json.toString());
 
         /* Grab notification content from data according to provided keys if not already set */
         if (title == null && titleKey != null) {
@@ -372,12 +397,23 @@ public class GCMIntentService extends GCMBaseIntentService {
             if (bitmap == null) {
                 Log.d(LCAT, "No large icon found");
             }
+            notificationId = (int)(Math.random()*100);
+            PendingIntent pIntent;
 
+            if (getAppIsRunning(this)) {
+                Intent mIntent = new Intent("nl.vanvianen.android.DataReceiver");
+                mIntent.putExtra("datas", json.toString());
+                PendingIntent broadcastIntent = PendingIntent.getBroadcast(this,
+                        notificationId, mIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+                pIntent = broadcastIntent;
+            } else {
+                pIntent = PendingIntent.getActivity(this, notificationId, launcherIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+            }
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context)
                     .setContentTitle(title)
                     .setContentText(message)
                     .setTicker(ticker)
-                    .setContentIntent(PendingIntent.getActivity(this, 0, launcherIntent, PendingIntent.FLAG_ONE_SHOT))
+                    .setContentIntent(pIntent)
                     .setSmallIcon(smallIcon)
                     .setLargeIcon(bitmap);
 
@@ -481,7 +517,6 @@ public class GCMIntentService extends GCMBaseIntentService {
             }
 
             notification.flags |= Notification.FLAG_AUTO_CANCEL;
-
             ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(notificationId, notification);
         }
     }
