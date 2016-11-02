@@ -22,4 +22,19 @@ $ ant clean
 $ ant
 ```
 
+Add the code below to your code to extract data from notification and just forget the callback function that used to get the gcm's lastData.
+
+```
+if (Ti.UI.Android) {
+    var bc = Ti.Android.createBroadcastReceiver({
+        onReceived: function(e) {
+            var gcm = require("nl.vanvianen.android.gcm");
+            gcm.startApp(); // this line of code get your app to foreground
+            var d = JSON.parse(e.intent.getStringExtra("datas")); // now you get the data, do whatever you want
+        }
+    });
+    Ti.Android.registerBroadcastReceiver(bc, ["nl.vanvianen.android.DataReceiver"]);
+}
+```
+
 A zip file will be created in the `dist` folder.

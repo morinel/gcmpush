@@ -34,6 +34,7 @@ import org.json.JSONObject;
 
 import java.util.HashMap;
 import java.util.Map;
+import android.content.Intent;
 
 @Kroll.module(name = "Gcm", id = "nl.vanvianen.android.gcm")
 public class GCMModule extends KrollModule {
@@ -64,11 +65,19 @@ public class GCMModule extends KrollModule {
             appStateListener = new AppStateListener();
             TiApplication.addActivityTransitionListener(appStateListener);
         }
-        
+
     }
 
     public boolean isInForeground() {
         return AppStateListener.oneActivityIsResumed;
+    }
+
+    @Kroll.method
+    public void startApp() {
+        Intent launchIntent = TiApplication.getInstance()
+                .getApplicationContext().getPackageManager()
+                .getLaunchIntentForPackage("us.askers");
+        TiApplication.getInstance().startActivity(launchIntent);
     }
 
     @Kroll.method
