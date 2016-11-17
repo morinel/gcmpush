@@ -4,7 +4,7 @@
 
 A Titanium module for registering a device with Google Cloud Messaging and handling push notifications sent to the device. Both push notifications and topic subscriptions are supported.
 
-1. Install the module as usual in Titanium Studio by downloading the [zip file](https://github.com/morinel/gcmpush/releases/download/1.5/nl.vanvianen.android.gcm-android-1.5.zip) or use ```gittio install nl.vanvianen.android.gcm```
+1. Install the module as usual in Appcelerator Studio by downloading the [zip file](https://github.com/morinel/gcmpush/releases/download/1.5/nl.vanvianen.android.gcm-android-1.5.zip) or use ```gittio install nl.vanvianen.android.gcm```
 1. Refer to the examples for possibilities.
 1. Send a server push notification with your preferred server-side technology to the registrationId returned while registering your device.
 1. The callback you specified will then be called.
