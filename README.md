@@ -6,13 +6,19 @@ A Titanium module for registering a device with Google Cloud Messaging and handl
 
 Read the [documentation](https://github.com/morinel/gcmpush/blob/master/documentation/index.md).
 
-To build, create a `build.properties` file with the following content:
+## Building
+
+Version 2.0+ of this module is only compatible with Titanium SDK 6+. Currently, Android NDK r11 is required to build the module without errors.
+
+[Windows 32-bit](https://dl.google.com/android/repository/android-ndk-r11-windows-x86.zip) | [Windows 64-bit](https://dl.google.com/android/repository/android-ndk-r11-windows-x86_64.zip) | [Mac OS X 64-bit](https://dl.google.com/android/repository/android-ndk-r11-darwin-x86_64.zip) | [Linux 64-bit](https://dl.google.com/android/repository/android-ndk-r11-linux-x86_64.zip)
+
+Create a `build.properties` file with the following content:
 
 ```
-titanium.platform=/Users/###USER###/Library/Application Support/Titanium/mobilesdk/osx/5.1.2.GA/android
+titanium.platform=/Users/###USER###/Library/Application Support/Titanium/mobilesdk/osx/6.0.0.GA/android
 android.platform=/Users/###USER###/Library/Android/sdk/platforms/android-23
 google.apis=/Users/###USER###/Library/Android/sdk/add-ons/addon-google_apis-google-23
-android.ndk=/Users/###USER###/Library/Android/ndk
+android.ndk=/Users/###USER###/Library/Android/android-ndk-r11
 ```
 
 Make sure your paths are correct for your system setup. Then run:
