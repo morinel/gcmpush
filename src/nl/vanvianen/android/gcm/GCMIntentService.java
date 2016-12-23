@@ -98,28 +98,31 @@ public class GCMIntentService extends GCMBaseIntentService {
             Object value = intent.getExtras().get(key);
             Log.d(LCAT, "Message key: \"" + key + "\" value: \"" + value + "\"");
 
-            if (key.equals("from") && value instanceof String && ((String) value).startsWith("/topics/")) {
-                isTopic = true;
-            }
+            if (value != null) {
 
-            String eventKey = key.startsWith("data.") ? key.substring(5) : key;
-            data.put(eventKey, intent.getExtras().get(key));
+                if (key.equals("from") && value instanceof String && ((String) value).startsWith("/topics/")) {
+                    isTopic = true;
+                }
 
-            if (value instanceof String && ((String) value).startsWith("{")) {
-                Log.d(LCAT, "Parsing JSON string...");
-                try {
-                    JSONObject json = new JSONObject((String) value);
+                String eventKey = key.startsWith("data.") ? key.substring(5) : key;
+                data.put(eventKey, intent.getExtras().get(key));
 
-                    Iterator<String> keys = json.keys();
-                    while (keys.hasNext()) {
-                        String jKey = keys.next();
-                        String jValue = json.getString(jKey);
-                        Log.d(LCAT, "JSON key: \"" + jKey + "\" value: \"" + jValue + "\"");
+                if (value instanceof String && ((String) value).startsWith("{")) {
+                    Log.d(LCAT, "Parsing JSON string...");
+                    try {
+                        JSONObject json = new JSONObject((String) value);
 
-                        data.put(jKey, jValue);
+                        Iterator<String> keys = json.keys();
+                        while (keys.hasNext()) {
+                            String jKey = keys.next();
+                            String jValue = json.getString(jKey);
+                            Log.d(LCAT, "JSON key: \"" + jKey + "\" value: \"" + jValue + "\"");
+
+                            data.put(jKey, jValue);
+                        }
+                    } catch(JSONException ex) {
+                        Log.d(LCAT, "JSON error: " + ex.getMessage());
                     }
-                } catch(JSONException ex) {
-                    Log.d(LCAT, "JSON error: " + ex.getMessage());
                 }
             }
         }
