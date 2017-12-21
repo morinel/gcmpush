@@ -9,8 +9,8 @@ Read the [documentation](https://github.com/morinel/gcmpush/blob/master/document
 To build, create a `build.properties` file with the following content:
 
 ```
-titanium.platform=/Users/###USER###/Library/Application Support/Titanium/mobilesdk/osx/5.1.2.GA/android
-android.platform=/Users/###USER###/Library/Android/sdk/platforms/android-23
+titanium.platform=/Users/###USER###/Library/Application Support/Titanium/mobilesdk/osx/7.0.0.GA/android
+android.platform=/Users/###USER###/Library/Android/sdk/platforms/android-26
 google.apis=/Users/###USER###/Library/Android/sdk/add-ons/addon-google_apis-google-23
 android.ndk=/Users/###USER###/Library/Android/ndk
 ```
@@ -18,8 +18,7 @@ android.ndk=/Users/###USER###/Library/Android/ndk
 Make sure your paths are correct for your system setup. Then run:
 
 ```
-$ ant clean
-$ ant
+$ appc run -p android --build-only
 ```
 
 A zip file will be created in the `dist` folder.
