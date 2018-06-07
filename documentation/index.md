@@ -6,7 +6,7 @@ A Titanium module for registering a device with Firebase Cloud Messaging and han
 
 1. Install the module as usual in Appcelerator Studio by downloading the zip file of the [latest release](https://github.com/morinel/gcmpush/releases/latest) or use `gittio install nl.vanvianen.android.gcm`
 1. Set up your [Firebase project](https://console.firebase.google.com/)
-1. Download the `google-services.json` file and put it in `PROJECT_FOLDER/app/assets/android/`.
+1. Download the `google-services.json` file and put it in `PROJECT_FOLDER/app/assets/android/` (or `PROJECT_FOLDER/Resources/android/` for non-Alloy projects).
 1. Refer to the examples for possibilities.
 1. Send a server push notification with your preferred server-side technology to the registrationId returned from calling `registerPush()`.
 1. The callback you specified will then be called.
@@ -45,7 +45,9 @@ gcm.registerPush({
         ledOff: 300
         /* Android O channels */
         channelId: 'my_channel',
-        channelName: 'My Channel'
+        channelName: 'My Channel',
+        /* Firebase config file (if you've renamed it or if it's in a subfolder) */
+        jsonFile: 'google-services.json'
     },
     success: function (event) {
         Ti.API.debug("Push registration success: " + JSON.stringify(event));

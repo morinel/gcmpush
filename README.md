@@ -10,7 +10,7 @@ Read the [documentation](https://github.com/morinel/gcmpush/blob/master/document
 
 1. Install this module using Axway Studio or via the CLI with `gittio install nl.vanvianen.android.gcm`
 2. Set up your [Firebase project](https://console.firebase.google.com/)
-3. Download the `google-services.json` file and put it in `PROJECT_FOLDER/app/assets/android/`.
+3. Download the `google-services.json` file and put it in `PROJECT_FOLDER/app/assets/android/` (or `PROJECT_FOLDER/Resources/android/` for non-Alloy projects).
 4. You are ready to receive Android push notifications! Check the [documentation](https://github.com/morinel/gcmpush/blob/master/documentation/index.md) for further instructions and examples.
 
 ## GCM to FCM Migration
@@ -20,7 +20,7 @@ If you are upgrading this module to version 3.0+, you will need to migrate to Fi
 1. In the [Firebase console](https://console.firebase.google.com/), select __Add Project__
 2. Select your GCM project from the list of existing Google Cloud Projects, and select __Add Firebase__
 3. In the Firebase welcome screen, select __Add Firebase to your Android App__
-4. Provide your package name (and optionally a SHA-1) and select __Add App__. A new `google-services.json` file for your Firebase app is downloaded. Place this file in `PROJECT_FOLDER/app/assets/android/`.
+4. Provide your package name (and optionally a SHA-1) and select __Add App__. A new `google-services.json` file for your Firebase app is downloaded. Place this file in `PROJECT_FOLDER/app/assets/android/` (or `PROJECT_FOLDER/Resources/android/` for non-Alloy projects).
 5. Update to version 3.0+ of this module
 6. Check the [Upgrade Guide](https://github.com/morinel/gcmpush/blob/master/documentation/index.md#version-3-upgrade-guide) for instructions about what needs to be altered in your code
 

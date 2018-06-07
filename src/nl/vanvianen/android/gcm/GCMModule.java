@@ -20,11 +20,13 @@ import android.app.Activity;
 import android.app.NotificationManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
+//import android.support.annotation.NonNull;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
+//import com.google.android.gms.tasks.OnCompleteListener;
+//import com.google.android.gms.tasks.Task;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
 import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.gson.Gson;
@@ -34,8 +36,13 @@ import org.appcelerator.kroll.KrollModule;
 import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiApplication;
-import org.json.JSONObject;
+import org.appcelerator.titanium.io.TiFileFactory;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -58,6 +65,8 @@ public class GCMModule extends KrollModule {
     private KrollFunction successTopicCallback = null;
     private KrollFunction errorTopicCallback = null;
     private KrollFunction topicCallback = null;
+
+    private String jsonFile = "google-services.json";
 
 
     public static final String LAST_DATA = "nl.vanvianen.android.gcm.last_data";
@@ -107,12 +116,24 @@ public class GCMModule extends KrollModule {
 
         parseBootIntent();
 
-        String registrationId = getRegistrationId();
-        if (registrationId != null && registrationId.length() > 0) {
-            sendSuccess(registrationId);
+        jsonFile = options.containsKey("jsonFile") ? (String)options.get("jsonFile") : jsonFile;
+
+        if (!checkPlayServices()) {
+            Log.e(LCAT, "Google Play Services are not available on this device");
+            return;
+        }
+
+        if (initializeFirebase(jsonFile)) {
+            String registrationId = getRegistrationId();
+            if (registrationId != null && registrationId.length() > 0) {
+                sendSuccess(registrationId);
+            }
+            else {
+                sendError(errorCallback, "Registration ID is not (yet) available. The `registration` callback will provide the registration ID when it is available.");
+            }
         }
         else {
-            sendError(errorCallback, "Registration ID is not (yet) available. The `registration` callback will provide the registration ID when it is available.");
+            sendError(errorCallback, "Could not initialize Firebase");
         }
     }
 
@@ -514,6 +535,124 @@ public class GCMModule extends KrollModule {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Initializes Firebase manually since we do not have control over the 
+     * Titanium-generated gradle file, so we must pass in the 
+     * google-services.json info manually
+     *
+     * Thanks to @hansemannn
+     * https://github.com/hansemannn/titanium-firebase-core/blob/971bcd5c9b177e995c72320e6be618afc9df549e/android/src/firebase/core/TitaniumFirebaseCoreModule.java
+     */
+    private boolean initializeFirebase(String file) {
+
+        if (file != null) {
+            Log.d(LCAT, "Loading Firebase config from: " + file);
+            JSONObject json = loadJSONFromAsset(file);
+            if (json != null) {
+                FirebaseOptions options = parseJSONOptions(json);
+
+                try {
+                    FirebaseApp.initializeApp(TiApplication.getInstance().getApplicationContext(), options);
+                    return true;
+                } catch (IllegalStateException e) {
+                    Log.w(LCAT, "There was a problem initializing FirebaseApp or it was initialized a second time: " + e);
+                    return false;
+                }
+            }
+            else {
+                Log.e(LCAT, "Could not read jsonFile.");
+            }
+        }
+
+        Log.d(LCAT, "Loading Firebase without config");
+        try {
+            FirebaseApp.initializeApp(TiApplication.getInstance().getApplicationContext());
+            return true;
+        } catch (IllegalStateException e) {
+            Log.w(LCAT, "There was a problem initializing FirebaseApp or it was initialized a second time: " + e);
+            return false;
+        }
+    }
+
+    private FirebaseOptions parseJSONOptions(JSONObject json) {
+        if (json == null) return null;
+
+        String apiKey = "";
+        String databaseURL = "";
+        String projectID = "";
+        String storageBucket = "";
+        String applicationID = "";
+        String GCMSenderID = "";
+        FirebaseOptions.Builder options = new FirebaseOptions.Builder();
+
+        try {
+            JSONObject projectInfo = json.getJSONObject("project_info");
+            String packageName = TiApplication.getAppCurrentActivity().getPackageName();
+
+            if (projectInfo.has("storage_bucket")) {
+                storageBucket = projectInfo.getString("storage_bucket");
+            }
+            if (projectInfo.has("firebase_url")) {
+                databaseURL = projectInfo.getString("firebase_url");
+            }
+            if (projectInfo.has("project_number")) {
+                GCMSenderID = projectInfo.getString("project_number");
+            }
+            if (projectInfo.has("project_id")) {
+                projectID = projectInfo.getString("project_id");
+            }
+            if (json.has("client")) {
+                JSONArray clients = json.getJSONArray("client");
+                for (int i = 0, len = clients.length(); i < len; i++) {
+                    JSONObject client = clients.getJSONObject(i);
+                    JSONObject clientInfo = client.getJSONObject("client_info");
+                    String pName = clientInfo.getJSONObject("android_client_info").getString("package_name");
+                    if (pName.equals(packageName)) {
+                        applicationID = client.getJSONObject("client_info").getString("mobilesdk_app_id");
+                        apiKey = client.getJSONArray("api_key").getJSONObject(0).getString("current_key");
+                    }
+                }
+            }
+        } catch (JSONException e) {
+            Log.e(LCAT, "Error parsing file: " + e);
+        }
+
+        options.setApiKey(apiKey);
+        options.setDatabaseUrl(databaseURL);
+        options.setProjectId(projectID);
+        options.setStorageBucket(storageBucket);
+        options.setApplicationId(applicationID);
+        options.setGcmSenderId(GCMSenderID);
+
+        return options.build();
+    }
+
+    private JSONObject loadJSONFromAsset(String filename) {
+        String json = null;
+
+        try {
+            String url = this.resolveUrl(null, filename);
+            Log.d(LCAT, "JSON Path: " + url);
+
+            InputStream inStream = TiFileFactory.createTitaniumFile(url, false).getInputStream();
+            byte[] buffer = new byte[inStream.available()];
+            inStream.read(buffer);
+            inStream.close();
+            json = new String(buffer, "UTF-8");
+        } catch (IOException e) {
+            Log.e(LCAT, "Error reading file: " + e);
+            return null;
+        }
+
+        try {
+            return new JSONObject(json);
+        } catch (JSONException e) {
+            Log.e(LCAT, "Error parsing JSON: " + e);
+        }
+
+        return null;
     }
 
     public static GCMModule getInstance() {

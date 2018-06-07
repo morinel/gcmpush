@@ -12,14 +12,14 @@
             
             <application>
                 <service
-                    android:name=".FCMService">
+                    android:name="nl.vanvianen.android.gcm.FCMService">
                     <intent-filter>
                         <action android:name="com.google.firebase.MESSAGING_EVENT"/>
                     </intent-filter>
                 </service>
 
                 <service
-                    android:name=".IIDService">
+                    android:name="nl.vanvianen.android.gcm.IIDService">
                     <intent-filter>
                         <action android:name="com.google.firebase.INSTANCE_ID_EVENT"/>
                     </intent-filter>
