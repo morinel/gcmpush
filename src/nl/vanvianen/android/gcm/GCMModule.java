@@ -605,6 +605,12 @@ public class GCMModule extends KrollModule {
         }
     }
 
+    /**
+     * Parse JSON into FirebaseOptions
+     *
+     * If this doesn't work, perhaps generating or just manually creating the strings would:
+     * https://developers.google.com/android/guides/google-services-plugin#processing_the_json_file
+     */
     private FirebaseOptions parseJSONOptions(JSONObject json) {
         if (json == null) return null;
 
