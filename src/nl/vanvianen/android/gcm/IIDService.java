@@ -18,6 +18,7 @@ package nl.vanvianen.android.gcm;
 
 import android.content.Intent;
 import android.util.Log;
+import android.support.v4.content.LocalBroadcastManager;
 
 import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.firebase.iid.FirebaseInstanceIdService;
@@ -40,6 +41,9 @@ public class IIDService extends FirebaseInstanceIdService {
         // If you want to send messages to this application instance or
         // manage this apps subscriptions on the server side, send the
         // Instance ID token to your app server.
-        GCMModule.getInstance().sendTokenUpdate(refreshedToken);
+        final Intent intent = new Intent("tokenRefreshed");
+        final LocalBroadcastManager broadcastManager = LocalBroadcastManager.getInstance(this);
+        intent.putExtra("token", refreshedToken);
+        broadcastManager.sendBroadcast(intent);
     }
 }

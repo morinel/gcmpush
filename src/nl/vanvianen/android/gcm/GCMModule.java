@@ -18,9 +18,14 @@ package nl.vanvianen.android.gcm;
 
 import android.app.Activity;
 import android.app.NotificationManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.AsyncTask;
 import android.os.Bundle;
 //import android.support.annotation.NonNull;
+import android.support.v4.content.LocalBroadcastManager;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 //import com.google.android.gms.tasks.OnCompleteListener;
@@ -67,10 +72,24 @@ public class GCMModule extends KrollModule {
     private KrollFunction topicCallback = null;
 
     private String jsonFile = "google-services.json";
-
+    private Boolean waitingForToken = false;
 
     public static final String LAST_DATA = "nl.vanvianen.android.gcm.last_data";
     public static final String NOTIFICATION_SETTINGS = "nl.vanvianen.android.gcm.notification_settings";
+
+    BroadcastReceiver tokenReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String token = intent.getStringExtra("token");
+            if (token != null) {
+                if (waitingForToken) {
+                    sendSuccess(token);
+                    waitingForToken = false;
+                }
+                sendTokenUpdate(token);
+            }
+        }
+    };
 
     public GCMModule() {
         super();
@@ -79,6 +98,8 @@ public class GCMModule extends KrollModule {
             appStateListener = new AppStateListener();
             TiApplication.addActivityTransitionListener(appStateListener);
         }
+
+        LocalBroadcastManager.getInstance(TiApplication.getInstance().getApplicationContext()).registerReceiver(tokenReceiver, new IntentFilter("tokenRefreshed"));
     }
 
     public boolean isInForeground() {
@@ -129,7 +150,8 @@ public class GCMModule extends KrollModule {
                 sendSuccess(registrationId);
             }
             else {
-                sendError(errorCallback, "Registration ID is not (yet) available. The `registration` callback will provide the registration ID when it is available.");
+                //sendError(errorCallback, "Registration ID is not (yet) available. The `registration` callback will provide the registration ID when it is available.");
+                waitingForToken = true;
             }
         }
         else {
@@ -383,6 +405,7 @@ public class GCMModule extends KrollModule {
 
     public void sendSuccess(String registrationId) {
         if (successCallback != null) {
+            Log.d(LCAT, "Sending success: " + registrationId);
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("success", true);
             data.put("registrationId", registrationId);
@@ -396,7 +419,7 @@ public class GCMModule extends KrollModule {
 
 
     public void sendError(KrollFunction callback, String error) {
-        Log.e(LCAT, error);
+        Log.e(LCAT, "Sending error: " + error);
         if (callback != null) {
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("success", false);
@@ -408,6 +431,8 @@ public class GCMModule extends KrollModule {
 
     public void sendMessage(Map<String, Object> messageData) {
         if (messageCallback != null) {
+            Log.d(LCAT, "Sending message");
+
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("data", messageData);
             data.put("inBackground", !isInForeground());
@@ -420,6 +445,8 @@ public class GCMModule extends KrollModule {
 
     public void sendTopicMessage(Map<String, Object> messageData) {
         if (topicCallback != null) {
+            Log.d(LCAT, "Sending topic message");
+
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("data", messageData);
             data.put("inBackground", !isInForeground());
@@ -432,6 +459,8 @@ public class GCMModule extends KrollModule {
 
     public void sendTokenUpdate(String token) {
         if (tokenCallback != null) {
+            Log.d(LCAT, "Sending token update: " + token);
+
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("success", true);
             data.put("registrationId", token);
@@ -618,6 +647,13 @@ public class GCMModule extends KrollModule {
         } catch (JSONException e) {
             Log.e(LCAT, "Error parsing file: " + e);
         }
+
+        Log.d(LCAT, "apiKey: " + apiKey);
+        Log.d(LCAT, "databaseUrl: " + databaseURL);
+        Log.d(LCAT, "projectId: " + projectID);
+        Log.d(LCAT, "storageBucket: " + storageBucket);
+        Log.d(LCAT, "applicationId: " + applicationID);
+        Log.d(LCAT, "GcmSenderId: " + GCMSenderID);
 
         options.setApiKey(apiKey);
         options.setDatabaseUrl(databaseURL);
