@@ -5,7 +5,7 @@
 A Titanium module for registering a device with Firebase Cloud Messaging and handling push notifications sent to the device. Both push notifications and topic subscriptions are supported.
 
 1. Install the module as usual in Appcelerator Studio by downloading the zip file of the [latest release](https://github.com/morinel/gcmpush/releases/latest) or use `gittio install nl.vanvianen.android.gcm`
-1. Set up your [Firebase project](https://console.firebase.google.com/)
+1. Set up your [Firebase project](https://console.firebase.google.com/). You **MUST** provide your SHA1 from your keystore to Firebase in order for messaging to work! See the Firebase SHA1 section below.
 1. Download the `google-services.json` file and put it in `PROJECT_FOLDER/app/assets/android/` (or `PROJECT_FOLDER/Resources/android/` for non-Alloy projects).
 1. Refer to the examples for possibilities.
 1. Send a server push notification with your preferred server-side technology to the registrationId returned from calling `registerPush()`.
@@ -13,19 +13,49 @@ A Titanium module for registering a device with Firebase Cloud Messaging and han
 
 This module does not require any tiapp.xml properties, all configuration is done in Javascript.
 
+
+## Firebase SHA1 ##
+
+In order for your app to authenticate properly with Google Play Services and receive messages, you must provide the SHA1 from the keystore used to sign your app in the Firebase project settings. Your debug keystore SHA1 can be found using this command:
+
+```
+$ keytool -list -v -keystore "/Users/USERNAME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android
+```
+
+If you use a custom keystore for release, use a similar command to get that SHA1:
+
+```
+$ keytool -list -v -keystore /path/to/yourappkeystore.keystore
+```
+
+**IMPORTANT**: REMEMBER TO RE-DOWNLOAD YOUR `google-services.json` FILE AFTER ADDING AN SHA1!
+
+
 ## Version 3 Ugrade Guide ##
 
-__TO DO__
+The hardest part about upgrading this module to v3 is the external configuration of Firebase. Most of your code should work the same, with one notable addition. You may need to add a `registration` callback in the `registerPush` parameters which handles updating your stored devide token (AKA registration ID) with whatever push notification service you are using. If you are using Firebase directly for sending push notifications, this won't be necessary.
+
+You can also remove the `senderId` option in the `registerPush` parameters, as that is handled with the `google-services.json` file.
 
 
 ## Register your app for push notifications ##
 
 See [this example](https://github.com/morinel/gcmpush/blob/master/example/app.js).
 
+It is not required to define `firebaseFile` or `firebaseConfig` if you have put your `google-services.json` file in the correct place. However, these options are available for advanced configurations. If your json file is named differently or is located in a subfolder, you must pass the path to the `firebaseFile` option.
+
+Alternatively, you can copy the JSON out of the file and pass it directly with the `firebaseConfig` option. This is useful if you have different Firebase projects for dev and production—you can pass different JSON depending on the build type, and if you're using Alloy you can add it to your config.json file and pass `Alloy.CFG.firebase`.
+
 ```
 var gcm = require("nl.vanvianen.android.gcm");
 
 gcm.registerPush({
+    /* Firebase config file (if you've renamed it or if it's in a subfolder) */
+    firebaseFile: 'somepath/google-services.json',
+    /* Firebase config JSON */
+    firebaseConfig: {
+        # ...
+    },
     notificationSettings: {
         sound: 'mysound.mp3', /* Place sound file in app/platform/android/res/raw/mysound.mp3 */
         smallIcon: 'notification_icon.png',  /* Place icon in app/platform/android/res/drawable/notification_icon.png */
@@ -45,9 +75,7 @@ gcm.registerPush({
         ledOff: 300
         /* Android O channels */
         channelId: 'my_channel',
-        channelName: 'My Channel',
-        /* Firebase config file (if you've renamed it or if it's in a subfolder) */
-        jsonFile: 'google-services.json'
+        channelName: 'My Channel'
     },
     success: function (event) {
         Ti.API.debug("Push registration success: " + JSON.stringify(event));
@@ -118,7 +146,14 @@ The settings sound, vibrate, insistent, group, localOnly, priority, bigText and 
 If the app is not active when the notification is received, use gcm.getLastData() to retrieve the contents of the notification and act accordingly to start or resume the app in a suitable way. If you're done, call gcm.clearLastData(), otherwise the same logic will happen when resuming the app again, see the [example](https://github.com/morinel/gcmpush/blob/master/example/app.js).
 
 
+## Testing notifications in your app ##
+
+There currently seems to be an issue which causes the registration token to be invalidated when rebuilding the app after having already built & installed. If you are not receiving notifications during development, you may need to uninstall the app from your device and rebuild/reinstall.
+
+
 ## Example server-side Java code to send a push notification ##
+
+**THIS EXAMPLE NO LONGER APPLIES WITH FCM**
 
 Use the following dependency:
 
@@ -167,6 +202,8 @@ public void sendPush() {
 
 
 ## Example server-side code to send message to a topic ##
+
+**THIS EXAMPLE NO LONGER APPLIES WITH FCM**
 
 ```java
 import org.apache.commons.io.IOUtils;

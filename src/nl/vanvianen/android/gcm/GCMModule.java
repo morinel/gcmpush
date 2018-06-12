@@ -18,10 +18,6 @@ package nl.vanvianen.android.gcm;
 
 import android.app.Activity;
 import android.app.NotificationManager;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.AsyncTask;
 import android.os.Bundle;
 //import android.support.annotation.NonNull;
@@ -77,20 +73,6 @@ public class GCMModule extends KrollModule {
     public static final String LAST_DATA = "nl.vanvianen.android.gcm.last_data";
     public static final String NOTIFICATION_SETTINGS = "nl.vanvianen.android.gcm.notification_settings";
 
-    BroadcastReceiver tokenReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String token = intent.getStringExtra("token");
-            if (token != null) {
-                if (waitingForToken) {
-                    sendSuccess(token);
-                    waitingForToken = false;
-                }
-                sendTokenUpdate(token);
-            }
-        }
-    };
-
     public GCMModule() {
         super();
         instance = this;
@@ -98,8 +80,6 @@ public class GCMModule extends KrollModule {
             appStateListener = new AppStateListener();
             TiApplication.addActivityTransitionListener(appStateListener);
         }
-
-        LocalBroadcastManager.getInstance(TiApplication.getInstance().getApplicationContext()).registerReceiver(tokenReceiver, new IntentFilter("tokenRefreshed"));
     }
 
     public boolean isInForeground() {
@@ -112,6 +92,16 @@ public class GCMModule extends KrollModule {
             return FirebaseInstanceId.getInstance().getToken();
         } catch (Exception ex) {
             return null;
+        }
+    }
+
+    public void tokenRefresh(String token) {
+        if (token != null) {
+            if (waitingForToken) {
+                sendSuccess(token);
+                waitingForToken = false;
+            }
+            sendTokenUpdate(token);
         }
     }
 
@@ -132,19 +122,27 @@ public class GCMModule extends KrollModule {
         tokenCallback = options.containsKey("registration") ? (KrollFunction)options.get("registration") : null;
 
         /* Store notification settings in global Ti.App properties */
-        JSONObject json = new JSONObject(notificationSettings);
-        TiApplication.getInstance().getAppProperties().setString(GCMModule.NOTIFICATION_SETTINGS, json.toString());
+        JSONObject notificationJSON = new JSONObject(notificationSettings);
+        TiApplication.getInstance().getAppProperties().setString(GCMModule.NOTIFICATION_SETTINGS, notificationJSON.toString());
 
         parseBootIntent();
-
-        jsonFile = options.containsKey("jsonFile") ? (String)options.get("jsonFile") : jsonFile;
 
         if (!checkPlayServices()) {
             Log.e(LCAT, "Google Play Services are not available on this device");
             return;
         }
 
-        if (initializeFirebase(jsonFile)) {
+        Map<String, Object> config = null;
+        // if "FirebaseConfig" param exists, "firebaseFile" is ignored
+        if (options.containsKey("firebaseConfig")) {
+            config = (Map<String, Object>) options.get("firebaseConfig");
+        }
+        else if (options.containsKey("firebaseFile")) {
+            config = new HashMap<String, Object>();
+            config.put("file", (String) options.get("firebaseFile"));
+        }
+
+        if (initializeFirebase(config)) {
             String registrationId = getRegistrationId();
             if (registrationId != null && registrationId.length() > 0) {
                 sendSuccess(registrationId);
@@ -573,29 +571,28 @@ public class GCMModule extends KrollModule {
      *
      * Thanks to @hansemannn
      * https://github.com/hansemannn/titanium-firebase-core/blob/971bcd5c9b177e995c72320e6be618afc9df549e/android/src/firebase/core/TitaniumFirebaseCoreModule.java
+     *
+     * TODO: possibly allow Firebase config parameters from tiapp.xml?
+     * https://developers.google.com/android/guides/google-services-plugin#processing_the_json_file
      */
-    private boolean initializeFirebase(String file) {
-
-        if (file != null) {
-            Log.d(LCAT, "Loading Firebase config from: " + file);
-            JSONObject json = loadJSONFromAsset(file);
-            if (json != null) {
-                FirebaseOptions options = parseJSONOptions(json);
-
-                try {
-                    FirebaseApp.initializeApp(TiApplication.getInstance().getApplicationContext(), options);
-                    return true;
-                } catch (IllegalStateException e) {
-                    Log.w(LCAT, "There was a problem initializing FirebaseApp or it was initialized a second time: " + e);
-                    return false;
-                }
-            }
-            else {
-                Log.e(LCAT, "Could not read jsonFile.");
-            }
+    private boolean initializeFirebase(Map<String, Object> config) {
+        // If config is empty, use default json file path
+        if (config == null) {
+            config = new HashMap<String, Object>();
+            config.put("file", jsonFile);
         }
 
-        Log.d(LCAT, "Loading Firebase without config");
+        FirebaseOptions options = parseConfig(config);
+
+        try {
+            FirebaseApp.initializeApp(TiApplication.getInstance().getApplicationContext(), options);
+            return true;
+        } catch (IllegalStateException e) {
+            Log.w(LCAT, "There was a problem initializing FirebaseApp or it was initialized a second time: " + e);
+            //return false;
+        }
+
+        Log.w(LCAT, "Loading Firebase without config (this probably won't work!)");
         try {
             FirebaseApp.initializeApp(TiApplication.getInstance().getApplicationContext());
             return true;
@@ -607,12 +604,9 @@ public class GCMModule extends KrollModule {
 
     /**
      * Parse JSON into FirebaseOptions
-     *
-     * If this doesn't work, perhaps generating or just manually creating the strings would:
-     * https://developers.google.com/android/guides/google-services-plugin#processing_the_json_file
      */
-    private FirebaseOptions parseJSONOptions(JSONObject json) {
-        if (json == null) return null;
+    private FirebaseOptions parseConfig(Map<String, Object> config) {
+        if (config == null) return null;
 
         String apiKey = "";
         String databaseURL = "";
@@ -621,6 +615,18 @@ public class GCMModule extends KrollModule {
         String applicationID = "";
         String GCMSenderID = "";
         FirebaseOptions.Builder options = new FirebaseOptions.Builder();
+        JSONObject json = null;
+
+        // if "file" param exists, all other config params are ignored
+        if (config.containsKey("file")) {
+            String file = (String) config.get("file");
+            Log.d(LCAT, "Loading Firebase config from: " + file);
+            json = loadJSONFromAsset(file);
+        }
+        else {
+            Log.d(LCAT, "Loading Firebase config from params");
+            json = new JSONObject(config);
+        }
 
         try {
             JSONObject projectInfo = json.getJSONObject("project_info");
@@ -651,7 +657,7 @@ public class GCMModule extends KrollModule {
                 }
             }
         } catch (JSONException e) {
-            Log.e(LCAT, "Error parsing file: " + e);
+            Log.e(LCAT, "Error parsing JSON: " + e);
         }
 
         Log.d(LCAT, "apiKey: " + apiKey);
