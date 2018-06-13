@@ -5,30 +5,13 @@
 A Titanium module for registering a device with Firebase Cloud Messaging and handling push notifications sent to the device. Both push notifications and topic subscriptions are supported.
 
 1. Install the module as usual in Appcelerator Studio by downloading the zip file of the [latest release](https://github.com/morinel/gcmpush/releases/latest) or use `gittio install nl.vanvianen.android.gcm`
-1. Set up your [Firebase project](https://console.firebase.google.com/). You **MUST** provide your SHA1 from your keystore to Firebase in order for messaging to work! See the Firebase SHA1 section below.
+1. Set up your [Firebase project](https://console.firebase.google.com/).
 1. Download the `google-services.json` file and put it in `PROJECT_FOLDER/app/assets/android/` (or `PROJECT_FOLDER/Resources/android/` for non-Alloy projects).
 1. Refer to the examples for possibilities.
 1. Send a server push notification with your preferred server-side technology to the registrationId returned from calling `registerPush()`.
 1. The callback you specified will then be called.
 
 This module does not require any tiapp.xml properties, all configuration is done in Javascript.
-
-
-## Firebase SHA1 ##
-
-In order for your app to authenticate properly with Google Play Services and receive messages, you must provide the SHA1 from the keystore used to sign your app in the Firebase project settings. Your debug keystore SHA1 can be found using this command:
-
-```
-$ keytool -list -v -keystore "/Users/USERNAME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android
-```
-
-If you use a custom keystore for release, use a similar command to get that SHA1:
-
-```
-$ keytool -list -v -keystore /path/to/yourappkeystore.keystore
-```
-
-**IMPORTANT**: REMEMBER TO RE-DOWNLOAD YOUR `google-services.json` FILE AFTER ADDING AN SHA1!
 
 
 ## Version 3 Ugrade Guide ##
