@@ -434,6 +434,21 @@ public class FCMService extends FirebaseMessagingService {
             }
             Log.i(LCAT, "bigText: " + bigText);
 
+            NotificationManager notificationManager = 
+(NotificationManager) TiApplication.getInstance().getApplicationContext().getSystemService(TiApplication.NOTIFICATION_SERVICE);
+
+            // Since android Oreo notification channel is needed.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (channelId != null && channelName != null) {
+                    NotificationChannel channel = new NotificationChannel(channelId,
+                            channelName,
+                            NotificationManager.IMPORTANCE_DEFAULT);
+                    notificationManager.createNotificationChannel(channel);
+                    builder.setChannelId(channelId);
+                }
+                Log.i(LCAT, "channelId: " + channelId);
+            }
+            
             Notification notification = builder.build();
 
             /* Sound, can also be set in the push notification payload */
@@ -498,19 +513,6 @@ public class FCMService extends FirebaseMessagingService {
             }
 
             notification.flags |= Notification.FLAG_AUTO_CANCEL;
-
-            NotificationManager notificationManager = 
-(NotificationManager) TiApplication.getInstance().getApplicationContext().getSystemService(TiApplication.NOTIFICATION_SERVICE);
-
-            // Since android Oreo notification channel is needed.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (channelId != null && channelName != null) {
-                    NotificationChannel channel = new NotificationChannel(channelId,
-                            channelName,
-                            NotificationManager.IMPORTANCE_DEFAULT);
-                    notificationManager.createNotificationChannel(channel);
-                }
-            }
 
             notificationManager.notify(notificationId, notification);
         }
