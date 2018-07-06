@@ -19,10 +19,17 @@ package nl.vanvianen.android.gcm;
 import android.app.Activity;
 import android.app.NotificationManager;
 import android.os.AsyncTask;
-import com.google.android.gcm.GCMRegistrar;
-import com.google.android.gms.gcm.GcmPubSub;
-import com.google.android.gms.gcm.GoogleCloudMessaging;
-import com.google.android.gms.iid.InstanceID;
+import android.os.Bundle;
+//import android.support.annotation.NonNull;
+import android.support.v4.content.LocalBroadcastManager;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
+//import com.google.android.gms.tasks.OnCompleteListener;
+//import com.google.android.gms.tasks.Task;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
+import com.google.firebase.iid.FirebaseInstanceId;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.gson.Gson;
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollFunction;
@@ -30,8 +37,13 @@ import org.appcelerator.kroll.KrollModule;
 import org.appcelerator.kroll.annotations.Kroll;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiApplication;
-import org.json.JSONObject;
+import org.appcelerator.titanium.io.TiFileFactory;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,6 +51,7 @@ import java.util.Map;
 public class GCMModule extends KrollModule {
     // Standard Debugging variables
     private static final String LCAT = "GCMModule";
+    private static final int PLAY_SERVICES_RESOLUTION_REQUEST = 9000;
 
     private static GCMModule instance = null;
     private static AppStateListener appStateListener = null;
@@ -47,12 +60,15 @@ public class GCMModule extends KrollModule {
     private KrollFunction successCallback = null;
     private KrollFunction errorCallback = null;
     private KrollFunction messageCallback = null;
+    private KrollFunction tokenCallback = null;
 
     /* Callbacks for topics */
     private KrollFunction successTopicCallback = null;
     private KrollFunction errorTopicCallback = null;
     private KrollFunction topicCallback = null;
 
+    private String jsonFile = "google-services.json";
+    private Boolean waitingForToken = false;
 
     public static final String LAST_DATA = "nl.vanvianen.android.gcm.last_data";
     public static final String NOTIFICATION_SETTINGS = "nl.vanvianen.android.gcm.notification_settings";
@@ -64,11 +80,29 @@ public class GCMModule extends KrollModule {
             appStateListener = new AppStateListener();
             TiApplication.addActivityTransitionListener(appStateListener);
         }
-        
     }
 
     public boolean isInForeground() {
         return AppStateListener.oneActivityIsResumed;
+    }
+
+    public String getToken(){
+        // get token and return it
+        try {
+            return FirebaseInstanceId.getInstance().getToken();
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    public void tokenRefresh(String token) {
+        if (token != null) {
+            if (waitingForToken) {
+                sendSuccess(token);
+                waitingForToken = false;
+            }
+            sendTokenUpdate(token);
+        }
     }
 
     @Kroll.method
@@ -77,36 +111,68 @@ public class GCMModule extends KrollModule {
 
         Log.d(LCAT, "registerPush called");
 
-        String senderId = (String) options.get("senderId");
         Map<String, Object> notificationSettings = (Map<String, Object>) options.get("notificationSettings");
-        successCallback = (KrollFunction) options.get("success");
-        errorCallback = (KrollFunction) options.get("error");
+
+        // Required callback
         messageCallback = (KrollFunction) options.get("callback");
 
+        // Optional callbacks
+        successCallback = options.containsKey("success") ? (KrollFunction)options.get("success") : null;
+        errorCallback = options.containsKey("error") ? (KrollFunction)options.get("error") : null;
+        tokenCallback = options.containsKey("registration") ? (KrollFunction)options.get("registration") : null;
+
         /* Store notification settings in global Ti.App properties */
-        JSONObject json = new JSONObject(notificationSettings);
-        TiApplication.getInstance().getAppProperties().setString(GCMModule.NOTIFICATION_SETTINGS, json.toString());
+        JSONObject notificationJSON = new JSONObject(notificationSettings);
+        TiApplication.getInstance().getAppProperties().setString(GCMModule.NOTIFICATION_SETTINGS, notificationJSON.toString());
 
-        if (senderId != null) {
-            GCMRegistrar.register(TiApplication.getInstance(), senderId);
+        parseBootIntent();
 
+        if (!checkPlayServices()) {
+            Log.e(LCAT, "Google Play Services are not available on this device");
+            return;
+        }
+
+        Map<String, Object> config = null;
+        // if "FirebaseConfig" param exists, "firebaseFile" is ignored
+        if (options.containsKey("firebaseConfig")) {
+            config = (Map<String, Object>) options.get("firebaseConfig");
+        }
+        else if (options.containsKey("firebaseFile")) {
+            config = new HashMap<String, Object>();
+            config.put("file", (String) options.get("firebaseFile"));
+        }
+
+        if (initializeFirebase(config)) {
             String registrationId = getRegistrationId();
             if (registrationId != null && registrationId.length() > 0) {
                 sendSuccess(registrationId);
             }
-        } else {
-            sendError(errorCallback, "No GCM senderId specified; get it from the Google Play Developer Console");
+            else {
+                //sendError(errorCallback, "Registration ID is not (yet) available. The `registration` callback will provide the registration ID when it is available.");
+                waitingForToken = true;
+            }
+        }
+        else {
+            sendError(errorCallback, "Could not initialize Firebase");
         }
     }
 
     @Kroll.method
     public void unregister() {
         Log.d(LCAT, "unregister called (" + (instance != null) + ")");
-        try {
-            GCMRegistrar.unregister(TiApplication.getInstance());
-        } catch (Exception ex) {
-            Log.e(LCAT, "Cannot unregister from push: " + ex.getMessage());
-        }
+
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+                    FirebaseInstanceId.getInstance().deleteInstanceId();
+                    Log.d(LCAT, "Delete instanceid succeeded");
+                } catch (Exception ex) {
+                    Log.e(LCAT, "Remove token failed - error: " + ex.getMessage());
+                }
+                return null;
+            }
+        }.execute();
     }
 
 
@@ -114,7 +180,7 @@ public class GCMModule extends KrollModule {
     @Kroll.getProperty
     public String getRegistrationId() {
         Log.d(LCAT, "get registrationId property");
-        return GCMRegistrar.getRegistrationId(TiApplication.getInstance());
+        return getToken();
     }
 
 
@@ -123,8 +189,7 @@ public class GCMModule extends KrollModule {
         Log.d(LCAT, "subscribe called");
 
         // subscripe to a topic
-        final String senderId = (String) options.get("senderId");
-        final String topic  = (String) options.get("topic");
+        String _topic  = (String) options.get("topic");
 
         if (options.get("success") != null) {
             successTopicCallback = (KrollFunction) options.get("success");
@@ -136,93 +201,158 @@ public class GCMModule extends KrollModule {
             topicCallback = (KrollFunction) options.get("callback");
         }
 
-        if (topic == null || !topic.startsWith("/topics/")) {
-            sendError(errorTopicCallback, "No or invalid topic specified, should start with /topics/");
+        if (_topic == null) {
+            Log.e(LCAT, "No or invalid topic specified");
         }
 
-        if (senderId != null) {
-            new AsyncTask<Void, Void, Void>() {
-                @Override
-                protected Void doInBackground(Void... params) {
-                    try {
-                        String token = getToken(senderId);
-                        GcmPubSub.getInstance(TiApplication.getInstance()).subscribe(token, topic, null);
+        if (_topic.startsWith("/topics/")) {
+            Log.w(LCAT, "Topic should NOT start with '/topic/'. Please update your implementation.");
+            _topic = _topic.substring(8);
+        }
 
-                        if (successTopicCallback != null) {
-                            // send success callback
-                            HashMap<String, Object> data = new HashMap<String, Object>();
-                            data.put("success", true);
-                            data.put("topic", topic);
-                            successTopicCallback.callAsync(getKrollObject(), data);
-                        }
-                    } catch (Exception ex) {
-                        // error
-                        Log.e(LCAT, "Error " + ex.toString());
-                        if (errorTopicCallback != null) {
-                            // send error callback
-                            HashMap<String, Object> data = new HashMap<String, Object>();
-                            data.put("success", false);
-                            data.put("topic", topic);
-                            data.put("error", ex.toString());
-                            errorCallback.callAsync(getKrollObject(), data);
-                        }
+        final String topic = _topic;
+
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+                    FirebaseMessaging.getInstance().subscribeToTopic(topic);
+
+                    if (successTopicCallback != null) {
+                        // send success callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("success", true);
+                        data.put("topic", topic);
+                        data.put("token", getToken());
+                        successTopicCallback.callAsync(getKrollObject(), data);
                     }
-                    return null;
+                } catch (Exception ex) {
+                    // error
+                    Log.e(LCAT, "Subscribe error " + ex.toString());
+                    if (errorTopicCallback != null) {
+                        // send error callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("success", false);
+                        data.put("topic", topic);
+                        data.put("token", getToken());
+                        data.put("error", ex.toString());
+                        errorCallback.callAsync(getKrollObject(), data);
+                    }
                 }
-            }.execute();
-        } else {
-            sendError(errorTopicCallback, "No GCM senderId specified; get it from the Google Play Developer Console");
-        }
+                return null;
+            }
+        }.execute();
+
+        /*
+        // Requires Firebase Messaging 17.0.0+ & Play Services 15.0.1+
+        FirebaseMessaging.getInstance().subscribeToTopic(topic).addOnCompleteListener(new OnCompleteListener<Void>() {
+            @Override
+            public void onComplete(@NonNull Task<Void> task) {
+                if (!task.isSuccessful()) {
+                    if (errorTopicCallback != null) {
+                        // send error callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("success", false);
+                        data.put("topic", topic);
+                        data.put("token", getToken());
+                        data.put("error", "Cannot subscribe to topic "+topic);
+                        errorCallback.callAsync(getKrollObject(), data);
+                    }
+                    return;
+                }
+
+                if (successTopicCallback != null) {
+                    // send success callback
+                    HashMap<String, Object> data = new HashMap<String, Object>();
+                    data.put("success", true);
+                    data.put("topic", topic);
+                    data.put("token", getToken());
+                    successTopicCallback.callAsync(getKrollObject(), data);
+                }
+            }
+        });
+        */
     }
 
     @Kroll.method
     public void unsubscribe(final HashMap options) {
+        Log.d(LCAT, "unsubscribe called");
+
         // unsubscripe from a topic
-        final String senderId = (String) options.get("senderId");
-        final String topic  = (String) options.get("topic");
+        String _topic  = (String) options.get("topic");
         final KrollFunction callback = (KrollFunction) options.get("callback");
 
-        if (topic == null || !topic.startsWith("/topics/")) {
-            Log.e(LCAT, "No or invalid topic specified, should start with /topics/");
+        if (_topic == null) {
+            Log.e(LCAT, "No or invalid topic specified");
         }
 
-        if (senderId != null) {
-            new AsyncTask<Void, Void, Void>() {
-                @Override
-                protected Void doInBackground(Void... params) {
-                    try {
-                        String token = getToken(senderId);
-                        if (token != null) {
-                            GcmPubSub.getInstance(TiApplication.getInstance()).unsubscribe(token, topic);
+        if (_topic.startsWith("/topics/")) {
+            Log.w(LCAT, "Topic should NOT start with '/topic/'. Please update your implementation.");
+            _topic = _topic.substring(8);
+        }
 
-                            if (callback != null) {
-                                // send success callback
-                                HashMap<String, Object> data = new HashMap<String, Object>();
-                                data.put("success", true);
-                                data.put("topic", topic);
-                                data.put("token", token);
-                                callback.callAsync(getKrollObject(), data);
-                            }
-                        } else {
-                            sendError(callback, "Cannot unsubscribe from topic " + topic);
-                        }
-                    } catch (Exception ex) {
-                        sendError(callback, "Cannot unsubscribe from topic " + topic + ": " + ex.getMessage());
+        final String topic = _topic;
+
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+                    FirebaseMessaging.getInstance().unsubscribeFromTopic(topic);
+
+                    if (successTopicCallback != null) {
+                        // send success callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("success", true);
+                        data.put("topic", topic);
+                        data.put("token", getToken());
+                        successTopicCallback.callAsync(getKrollObject(), data);
                     }
-                    return null;
+                } catch (Exception ex) {
+                    // error
+                    Log.e(LCAT, "Unsubscribe error " + ex.toString());
+                    if (errorTopicCallback != null) {
+                        // send error callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("success", false);
+                        data.put("topic", topic);
+                        data.put("token", getToken());
+                        data.put("error", ex.toString());
+                        errorCallback.callAsync(getKrollObject(), data);
+                    }
                 }
-            }.execute();
-        }
-    }
+                return null;
+            }
+        }.execute();
 
-    public String getToken(String senderId){
-        // get token and return it
-        try {
-            InstanceID instanceID = InstanceID.getInstance(TiApplication.getInstance());
-            return instanceID.getToken(senderId, GoogleCloudMessaging.INSTANCE_ID_SCOPE, null);
-        } catch (Exception ex) {
-            return null;
-        }
+        /*
+        // Requires Firebase Messaging 17.0.0+ & Play Services 15.0.1+
+        FirebaseMessaging.getInstance().unsubscribeFromTopic(topic).addOnCompleteListener(new OnCompleteListener<Void>() {
+            @Override
+            public void onComplete(@NonNull Task<Void> task) {
+                if (!task.isSuccessful()) {
+                    if (errorTopicCallback != null) {
+                        // send error callback
+                        HashMap<String, Object> data = new HashMap<String, Object>();
+                        data.put("success", false);
+                        data.put("topic", topic);
+                        data.put("token", getToken());
+                        data.put("error", "Cannot unsubscribe from topic "+topic);
+                        errorCallback.callAsync(getKrollObject(), data);
+                    }
+                    return;
+                }
+
+                if (successTopicCallback != null) {
+                    // send success callback
+                    HashMap<String, Object> data = new HashMap<String, Object>();
+                    data.put("success", true);
+                    data.put("topic", topic);
+                    data.put("token", getToken());
+                    successTopicCallback.callAsync(getKrollObject(), data);
+                }
+            }
+        });
+        */
     }
 
     @Kroll.method
@@ -273,6 +403,7 @@ public class GCMModule extends KrollModule {
 
     public void sendSuccess(String registrationId) {
         if (successCallback != null) {
+            Log.d(LCAT, "Sending success: " + registrationId);
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("success", true);
             data.put("registrationId", registrationId);
@@ -286,7 +417,7 @@ public class GCMModule extends KrollModule {
 
 
     public void sendError(KrollFunction callback, String error) {
-        Log.e(LCAT, error);
+        Log.e(LCAT, "Sending error: " + error);
         if (callback != null) {
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("success", false);
@@ -296,8 +427,10 @@ public class GCMModule extends KrollModule {
         }
     }
 
-    public void sendMessage(HashMap<String, Object> messageData) {
+    public void sendMessage(Map<String, Object> messageData) {
         if (messageCallback != null) {
+            Log.d(LCAT, "Sending message");
+
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("data", messageData);
             data.put("inBackground", !isInForeground());
@@ -308,8 +441,10 @@ public class GCMModule extends KrollModule {
         }
     }
 
-    public void sendTopicMessage(HashMap<String, Object> messageData) {
+    public void sendTopicMessage(Map<String, Object> messageData) {
         if (topicCallback != null) {
+            Log.d(LCAT, "Sending topic message");
+
             HashMap<String, Object> data = new HashMap<String, Object>();
             data.put("data", messageData);
             data.put("inBackground", !isInForeground());
@@ -317,6 +452,17 @@ public class GCMModule extends KrollModule {
             topicCallback.call(getKrollObject(), data);
         } else {
             Log.e(LCAT, "No callback specified for topic subscribe");
+        }
+    }
+
+    public void sendTokenUpdate(String token) {
+        if (tokenCallback != null) {
+            Log.d(LCAT, "Sending token update: " + token);
+
+            HashMap<String, Object> data = new HashMap<String, Object>();
+            data.put("success", true);
+            data.put("registrationId", token);
+            tokenCallback.callAsync(getKrollObject(), data);
         }
     }
 
@@ -328,12 +474,18 @@ public class GCMModule extends KrollModule {
     @Override
     protected void initActivity(Activity activity) {
         Log.d(LCAT, "initActivity " + activity + " (" + (instance != null) + ")");
+
+        checkPlayServices();
+
         super.initActivity(activity);
     }
 
     @Override
     public void onResume(Activity activity) {
         Log.d(LCAT, "onResume " + activity + " (" + (instance != null) + ")");
+
+        checkPlayServices();
+
         super.onResume(activity);
     }
 
@@ -359,6 +511,196 @@ public class GCMModule extends KrollModule {
     public void onStop(Activity activity) {
         Log.d(LCAT, "onStop " + activity + " (" + (instance != null) + ")");
         super.onStop(activity);
+    }
+
+    private void parseBootIntent() {
+        try {
+            Bundle extras = TiApplication.getAppRootOrCurrentActivity().getIntent().getExtras();
+            String notification = "";
+
+            if (extras != null) {
+                notification = extras.getString("data");
+                for (String key : extras.keySet()) {
+                            Object value = extras.get(key);
+                            Log.d(LCAT, "Key: " + key + " Value: " + value);
+                        }
+            }
+
+            if (notification != null && !notification.isEmpty()) {
+                /* Store data to be retrieved when resuming app as a JSON object, serialized as a String, otherwise
+                 * Ti.App.Properties.getString(GCMModule.LAST_DATA) doesn't work. */
+                JSONObject json = new JSONObject(notification);
+                TiApplication.getInstance().getAppProperties().setString(GCMModule.LAST_DATA, json.toString());
+
+                Map<String,Object> notificationData = new Gson().fromJson(notification, Map.class);
+
+                sendMessage(notificationData);
+            } else {
+                Log.d(LCAT, "No notification in Intent");
+            }
+        } catch (Exception ex) {
+            Log.e(LCAT, "parseBootIntent" + ex);
+        }
+    }
+
+    /**
+     * Check the device to make sure it has the Google Play Services APK. If
+     * it doesn't, display a dialog that allows users to download the APK from
+     * the Google Play Store or enable it in the device's system settings.
+     */
+    private boolean checkPlayServices() {
+        Activity activity = TiApplication.getAppRootOrCurrentActivity();
+        GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
+
+        int resultCode = apiAvailability.isGooglePlayServicesAvailable(activity);
+        if (resultCode != ConnectionResult.SUCCESS) {
+            if (apiAvailability.isUserResolvableError(resultCode)) {
+                apiAvailability.getErrorDialog(activity, resultCode, PLAY_SERVICES_RESOLUTION_REQUEST).show();
+            } else {
+                Log.w(LCAT, "This device is not supported.");
+            }
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Initializes Firebase manually since we do not have control over the 
+     * Titanium-generated gradle file, so we must pass in the 
+     * google-services.json info manually
+     *
+     * Thanks to @hansemannn
+     * https://github.com/hansemannn/titanium-firebase-core/blob/971bcd5c9b177e995c72320e6be618afc9df549e/android/src/firebase/core/TitaniumFirebaseCoreModule.java
+     *
+     * TODO: possibly allow Firebase config parameters from tiapp.xml?
+     * https://developers.google.com/android/guides/google-services-plugin#processing_the_json_file
+     */
+    private boolean initializeFirebase(Map<String, Object> config) {
+        // If config is empty, use default json file path
+        if (config == null) {
+            config = new HashMap<String, Object>();
+            config.put("file", jsonFile);
+        }
+
+        FirebaseOptions options = parseConfig(config);
+
+        try {
+            FirebaseApp.initializeApp(TiApplication.getInstance().getApplicationContext(), options);
+            return true;
+        } catch (IllegalStateException e) {
+            Log.w(LCAT, "There was a problem initializing FirebaseApp or it was initialized a second time: " + e);
+            //return false;
+        }
+
+        Log.w(LCAT, "Loading Firebase without config (this probably won't work!)");
+        try {
+            FirebaseApp.initializeApp(TiApplication.getInstance().getApplicationContext());
+            return true;
+        } catch (IllegalStateException e) {
+            Log.w(LCAT, "There was a problem initializing FirebaseApp or it was initialized a second time: " + e);
+            return false;
+        }
+    }
+
+    /**
+     * Parse JSON into FirebaseOptions
+     */
+    private FirebaseOptions parseConfig(Map<String, Object> config) {
+        if (config == null) return null;
+
+        String apiKey = "";
+        String databaseURL = "";
+        String projectID = "";
+        String storageBucket = "";
+        String applicationID = "";
+        String GCMSenderID = "";
+        FirebaseOptions.Builder options = new FirebaseOptions.Builder();
+        JSONObject json = null;
+
+        // if "file" param exists, all other config params are ignored
+        if (config.containsKey("file")) {
+            String file = (String) config.get("file");
+            Log.d(LCAT, "Loading Firebase config from: " + file);
+            json = loadJSONFromAsset(file);
+        }
+        else {
+            Log.d(LCAT, "Loading Firebase config from params");
+            json = new JSONObject(config);
+        }
+
+        try {
+            JSONObject projectInfo = json.getJSONObject("project_info");
+            String packageName = TiApplication.getAppCurrentActivity().getPackageName();
+
+            if (projectInfo.has("storage_bucket")) {
+                storageBucket = projectInfo.getString("storage_bucket");
+            }
+            if (projectInfo.has("firebase_url")) {
+                databaseURL = projectInfo.getString("firebase_url");
+            }
+            if (projectInfo.has("project_number")) {
+                GCMSenderID = projectInfo.getString("project_number");
+            }
+            if (projectInfo.has("project_id")) {
+                projectID = projectInfo.getString("project_id");
+            }
+            if (json.has("client")) {
+                JSONArray clients = json.getJSONArray("client");
+                for (int i = 0, len = clients.length(); i < len; i++) {
+                    JSONObject client = clients.getJSONObject(i);
+                    JSONObject clientInfo = client.getJSONObject("client_info");
+                    String pName = clientInfo.getJSONObject("android_client_info").getString("package_name");
+                    if (pName.equals(packageName)) {
+                        applicationID = client.getJSONObject("client_info").getString("mobilesdk_app_id");
+                        apiKey = client.getJSONArray("api_key").getJSONObject(0).getString("current_key");
+                    }
+                }
+            }
+        } catch (JSONException e) {
+            Log.e(LCAT, "Error parsing JSON: " + e);
+        }
+
+        Log.d(LCAT, "apiKey: " + apiKey);
+        Log.d(LCAT, "databaseUrl: " + databaseURL);
+        Log.d(LCAT, "projectId: " + projectID);
+        Log.d(LCAT, "storageBucket: " + storageBucket);
+        Log.d(LCAT, "applicationId: " + applicationID);
+        Log.d(LCAT, "GcmSenderId: " + GCMSenderID);
+
+        options.setApiKey(apiKey);
+        options.setDatabaseUrl(databaseURL);
+        options.setProjectId(projectID);
+        options.setStorageBucket(storageBucket);
+        options.setApplicationId(applicationID);
+        options.setGcmSenderId(GCMSenderID);
+
+        return options.build();
+    }
+
+    private JSONObject loadJSONFromAsset(String filename) {
+        String json = null;
+
+        try {
+            String url = this.resolveUrl(null, filename);
+            Log.d(LCAT, "JSON Path: " + url);
+
+            InputStream inStream = TiFileFactory.createTitaniumFile(url, false).getInputStream();
+            byte[] buffer = new byte[inStream.available()];
+            inStream.read(buffer);
+            inStream.close();
+            json = new String(buffer, "UTF-8");
+        } catch (IOException e) {
+            Log.e(LCAT, "Error reading file: " + e);
+            return null;
+        }
+
+        try {
+            return new JSONObject(json);
+        } catch (JSONException e) {
+            Log.e(LCAT, "Error parsing JSON: " + e);
+        }
+
+        return null;
     }
 
     public static GCMModule getInstance() {
