@@ -18,14 +18,18 @@ package nl.vanvianen.android.gcm;
 
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.NotificationChannel;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.AudioAttributes;
 import android.net.Uri;
 import android.support.v4.app.NotificationCompat;
-import com.google.android.gcm.GCMBaseIntentService;
+import android.os.Build;
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
 import com.google.gson.Gson;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiApplication;
@@ -38,9 +42,9 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class GCMIntentService extends GCMBaseIntentService {
+public class FCMService extends FirebaseMessagingService {
 
-    private static final String LCAT = "GCMIntentService";
+    private static final String LCAT = "FCMService";
 
     private static final String UNREGISTER_EVENT = "unregister";
 
@@ -50,22 +54,8 @@ public class GCMIntentService extends GCMBaseIntentService {
 
     private final static AtomicInteger notificationCounter = new AtomicInteger(0);
 
-    public GCMIntentService() {
-        super("");
-    }
-
-    @Override
-    public void onRegistered(Context context, String registrationId) {
-        Log.d(LCAT, "Registered: " + registrationId);
-
-        GCMModule.getInstance().sendSuccess(registrationId);
-    }
-
-    @Override
-    public void onUnregistered(Context context, String registrationId) {
-        Log.d(LCAT, "Unregistered");
-
-        GCMModule.getInstance().fireEvent(UNREGISTER_EVENT, new HashMap<String, Object>());
+    public FCMService() {
+        super();
     }
 
     private int getResource(String type, String name) {
@@ -88,14 +78,22 @@ public class GCMIntentService extends GCMBaseIntentService {
 
     @Override
     @SuppressWarnings("unchecked")
-    protected void onMessage(Context context, Intent intent) {
-        Log.d(LCAT, "Push notification received");
+    public void onMessageReceived(RemoteMessage remoteMessage) {
+        //Log.d(LCAT, "Push notification received");
+        Log.d(LCAT, "Push notification received from: "+remoteMessage.getFrom()); // AbstractSafeParcelable
+
+        if (remoteMessage.getData() == null) {
+            Log.w(LCAT, "No notification data received. Aborting.");
+            return;
+        }
+
+        Map<String, String> params = remoteMessage.getData();
 
         boolean isTopic = false;
 
         HashMap<String, Object> data = new HashMap<String, Object>();
-        for (String key : intent.getExtras().keySet()) {
-            Object value = intent.getExtras().get(key);
+        for (String key : params.keySet()) {
+            Object value = params.get(key);
             Log.d(LCAT, "Message key: \"" + key + "\" value: \"" + value + "\"");
 
             if (key.equals("from") && value instanceof String && ((String) value).startsWith("/topics/")) {
@@ -103,7 +101,7 @@ public class GCMIntentService extends GCMBaseIntentService {
             }
 
             String eventKey = key.startsWith("data.") ? key.substring(5) : key;
-            data.put(eventKey, intent.getExtras().get(key));
+            data.put(eventKey, params.get(key));
 
             if (value instanceof String && ((String) value).startsWith("{")) {
                 Log.d(LCAT, "Parsing JSON string...");
@@ -140,7 +138,7 @@ public class GCMIntentService extends GCMBaseIntentService {
         int priority = 0;
         boolean bigText = false;
         int notificationId = 1;
-        
+
         Integer ledOn = null;
         Integer ledOff = null;
 
@@ -152,6 +150,9 @@ public class GCMIntentService extends GCMBaseIntentService {
         String ticker = null;
 
         boolean backgroundOnly = false;
+
+        String channelId = null;
+        String channelName = null;
 
         Map<String, Object> notificationSettings = new Gson().fromJson(TiApplication.getInstance().getAppProperties().getString(GCMModule.NOTIFICATION_SETTINGS, null), Map.class);
         if (notificationSettings != null) {
@@ -313,6 +314,23 @@ public class GCMIntentService extends GCMBaseIntentService {
                 }
             }
 
+            if (notificationSettings.get("channelId") != null) {
+                if (notificationSettings.get("channelId") instanceof String) {
+                    channelId = (String) notificationSettings.get("channelId");
+                    channelId = channelId.replaceAll(" ", "_").toLowerCase();
+                } else {
+                    Log.e(LCAT, "Invalid setting channelId, should be a String");
+                }
+            }
+
+            if (notificationSettings.get("channelName") != null) {
+                if (notificationSettings.get("channelName") instanceof String) {
+                    channelName = (String) notificationSettings.get("channelName");
+                } else {
+                    Log.e(LCAT, "Invalid setting channelName, should be a String");
+                }
+            }
+
         } else {
             Log.d(LCAT, "No notification settings found");
         }
@@ -373,7 +391,7 @@ public class GCMIntentService extends GCMBaseIntentService {
                 Log.d(LCAT, "No large icon found");
             }
 
-            NotificationCompat.Builder builder = new NotificationCompat.Builder(context)
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(TiApplication.getInstance().getApplicationContext())
                     .setContentTitle(title)
                     .setContentText(message)
                     .setTicker(ticker)
@@ -417,13 +435,34 @@ public class GCMIntentService extends GCMBaseIntentService {
             }
             Log.i(LCAT, "bigText: " + bigText);
 
-            Notification notification = builder.build();
-
             /* Sound, can also be set in the push notification payload */
             if (data.get("sound") != null) {
                 Log.d(LCAT, "Sound specified in notification");
                 sound = (String) data.get("sound");
             }
+
+            NotificationManager notificationManager =
+                (NotificationManager) TiApplication.getInstance().getApplicationContext().getSystemService(TiApplication.NOTIFICATION_SERVICE);
+
+            // Since android Oreo notification channel is needed.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Uri soundUri = Uri.parse("android.resource://" + pkg + "/" + getResource("raw", sound));
+                AudioAttributes attributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .build();
+
+                if (channelId != null && channelName != null) {
+                    NotificationChannel channel = new NotificationChannel(channelId,
+                            channelName,
+                            NotificationManager.IMPORTANCE_DEFAULT);
+                    channel.setSound(soundUri, attributes);
+                    notificationManager.createNotificationChannel(channel);
+                    builder.setChannelId(channelId);
+                }
+                Log.i(LCAT, "channelId: " + channelId);
+            }
+
+            Notification notification = builder.build();
 
             if ("default".equals(sound)) {
                 Log.i(LCAT, "Sound: default sound");
@@ -441,6 +480,7 @@ public class GCMIntentService extends GCMBaseIntentService {
                 notification.defaults |= Notification.DEFAULT_VIBRATE;
             }
             Log.i(LCAT, "Vibrate: " + vibrate);
+
 
             /* Insistent, can also be set in the push notification payload */
             if ("true".equals(data.get("insistent"))) {
@@ -482,10 +522,18 @@ public class GCMIntentService extends GCMBaseIntentService {
 
             notification.flags |= Notification.FLAG_AUTO_CANCEL;
 
-            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(notificationId, notification);
+            notificationManager.notify(notificationId, notification);
         }
     }
 
+    /*
+    @Override
+    protected void onDeletedMessages() {
+        // TODO: https://firebase.google.com/docs/cloud-messaging/android/receive#override-ondeletedmessages
+    }
+    */
+
+    /*
     @Override
     public void onError(Context context, String errorId) {
         Log.e(LCAT, "Error: " + errorId);
@@ -505,4 +553,5 @@ public class GCMIntentService extends GCMBaseIntentService {
 
         return true;
     }
+    */
 }
