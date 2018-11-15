@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.AudioAttributes;
 import android.net.Uri;
 import android.support.v4.app.NotificationCompat;
 import android.os.Build;
@@ -137,7 +138,7 @@ public class FCMService extends FirebaseMessagingService {
         int priority = 0;
         boolean bigText = false;
         int notificationId = 1;
-        
+
         Integer ledOn = null;
         Integer ledOff = null;
 
@@ -434,28 +435,34 @@ public class FCMService extends FirebaseMessagingService {
             }
             Log.i(LCAT, "bigText: " + bigText);
 
-            NotificationManager notificationManager = 
-(NotificationManager) TiApplication.getInstance().getApplicationContext().getSystemService(TiApplication.NOTIFICATION_SERVICE);
-
-            // Since android Oreo notification channel is needed.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (channelId != null && channelName != null) {
-                    NotificationChannel channel = new NotificationChannel(channelId,
-                            channelName,
-                            NotificationManager.IMPORTANCE_DEFAULT);
-                    notificationManager.createNotificationChannel(channel);
-                    builder.setChannelId(channelId);
-                }
-                Log.i(LCAT, "channelId: " + channelId);
-            }
-            
-            Notification notification = builder.build();
-
             /* Sound, can also be set in the push notification payload */
             if (data.get("sound") != null) {
                 Log.d(LCAT, "Sound specified in notification");
                 sound = (String) data.get("sound");
             }
+
+            NotificationManager notificationManager =
+                (NotificationManager) TiApplication.getInstance().getApplicationContext().getSystemService(TiApplication.NOTIFICATION_SERVICE);
+
+            // Since android Oreo notification channel is needed.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Uri soundUri = Uri.parse("android.resource://" + pkg + "/" + getResource("raw", sound));
+                AudioAttributes attributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .build();
+
+                if (channelId != null && channelName != null) {
+                    NotificationChannel channel = new NotificationChannel(channelId,
+                            channelName,
+                            NotificationManager.IMPORTANCE_DEFAULT);
+                    channel.setSound(soundUri, attributes);
+                    notificationManager.createNotificationChannel(channel);
+                    builder.setChannelId(channelId);
+                }
+                Log.i(LCAT, "channelId: " + channelId);
+            }
+
+            Notification notification = builder.build();
 
             if ("default".equals(sound)) {
                 Log.i(LCAT, "Sound: default sound");
@@ -473,6 +480,7 @@ public class FCMService extends FirebaseMessagingService {
                 notification.defaults |= Notification.DEFAULT_VIBRATE;
             }
             Log.i(LCAT, "Vibrate: " + vibrate);
+
 
             /* Insistent, can also be set in the push notification payload */
             if ("true".equals(data.get("insistent"))) {
